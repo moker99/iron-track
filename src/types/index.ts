@@ -56,6 +56,8 @@ export interface WorkoutSession {
   date: string; // YYYY-MM-DD
   startTime: string; // ISO or HH:mm
   endTime?: string;
+  durationMinutes?: number; // 訓練時長 (分鐘)
+  caloriesBurned?: number;  // 本次訓練消耗卡路里 (kcal)
   routineTitle: string;
   exercises: WorkoutExerciseLog[];
   totalVolumeKg: number;

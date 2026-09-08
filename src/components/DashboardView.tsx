@@ -34,6 +34,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const targets = useMemo(() => getUserNutritionTargets(activeProfile), [activeProfile]);
 
+  const todayWorkouts = useMemo(() => allWorkouts.filter(w => w.date === todayStr), [allWorkouts, todayStr]);
+  const todayWorkoutBurn = useMemo(() => todayWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0), [todayWorkouts]);
+  const dynamicTotalBurn = targets.tdee + todayWorkoutBurn;
+
   // 今日總攝取計算
   const totals = useMemo(() => {
     let cal = 0;
@@ -54,8 +58,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       remaining: Math.round(targets.targetCalories - cal),
       percent: Math.min(150, Math.round((cal / targets.targetCalories) * 100)),
       macroCalories: Math.round((p * 4) + (c * 4) + (f * 9)),
+      netBalance: Math.round(cal - dynamicTotalBurn),
     };
-  }, [todayMeals, targets.targetCalories]);
+  }, [todayMeals, targets.targetCalories, dynamicTotalBurn]);
 
   // 問候語
   const greeting = useMemo(() => {
@@ -114,37 +119,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Big Numbers Row */}
-        <div className="grid-cols-3 grid-responsive-3 gap-4" style={{ marginBottom: '1.5rem' }}>
+        <div className="grid-cols-4 grid-responsive-2 gap-4" style={{ marginBottom: '1.5rem' }}>
           {/* Intake */}
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1.1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>今日已攝取</div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: totals.calories > targets.targetCalories ? 'var(--neon-rose)' : 'var(--neon-green)', lineHeight: 1.2 }}>
-              {totals.calories} <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>kcal</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: totals.calories > targets.targetCalories ? 'var(--neon-rose)' : 'var(--neon-green)', lineHeight: 1.2 }}>
+              {totals.calories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-              佔目標 {totals.percent}%
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+              佔目標預算 {totals.percent}%
+            </div>
+          </div>
+
+          {/* Total Dynamic Expenditure */}
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>今日總消耗熱量</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--neon-amber)', lineHeight: 1.2 }}>
+              {dynamicTotalBurn} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+              TDEE {targets.tdee} + 訓練 {todayWorkoutBurn} kcal
+            </div>
+          </div>
+
+          {/* Net Balance */}
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>每日淨熱量平衡</div>
+            <div style={{
+              fontSize: '1.8rem',
+              fontWeight: 900,
+              color: totals.netBalance < 0 ? 'var(--neon-green)' : totals.netBalance > 0 ? 'var(--neon-purple)' : 'var(--neon-cyan)',
+              lineHeight: 1.2
+            }}>
+              {totals.netBalance > 0 ? `+${totals.netBalance}` : totals.netBalance} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+              {totals.netBalance < 0 ? `🔥 淨赤字 (減脂中)` : totals.netBalance > 0 ? `💪 淨盈餘 (增肌中)` : `⚖️ 能量收支平衡`}
             </div>
           </div>
 
           {/* Remaining */}
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1.1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>剩餘可攝取熱量</div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: totals.remaining < 0 ? 'var(--neon-rose)' : 'var(--neon-cyan)', lineHeight: 1.2 }}>
-              {totals.remaining} <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>kcal</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 900, color: totals.remaining < 0 ? 'var(--neon-rose)' : 'var(--neon-cyan)', lineHeight: 1.2 }}>
+              {totals.remaining} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
               目標上限 {targets.targetCalories} kcal
-            </div>
-          </div>
-
-          {/* Verification */}
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1.1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>三大元素熱量校驗</div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--neon-amber)', lineHeight: 1.2 }}>
-              {totals.macroCalories} <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>kcal</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-              4P + 4C + 9F 公式精確驗算
             </div>
           </div>
         </div>

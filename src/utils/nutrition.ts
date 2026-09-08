@@ -120,3 +120,26 @@ export function calculate1RM(weightKg: number, reps: number): number {
   if (reps >= 37) return weightKg;
   return Math.round(weightKg * (36 / (37 - reps)));
 }
+
+/**
+ * 估算重訓與健身運動消耗熱量 (ACSM 代謝當量 MET 公式)
+ * @param weightKg 體重 (kg)
+ * @param durationMinutes 訓練時長 (分)
+ * @param totalSets 完成組數
+ * @param totalVolumeKg 訓練總容量 (kg)
+ */
+export function estimateWorkoutCalories(
+  weightKg: number,
+  durationMinutes: number,
+  totalSets: number,
+  totalVolumeKg: number
+): number {
+  if (durationMinutes <= 0 && totalSets <= 0) return 0;
+  const validDuration = Math.max(durationMinutes, totalSets * 2.5); // 若沒開計時碼錶，每組預估2.5分鐘
+  // 重訓中高強度 MET 基準約 5.5
+  const baseBurn = (5.5 * 3.5 * (weightKg || 70) / 200) * validDuration;
+  // 加上總訓練容量強度加成
+  const volumeBonus = Math.min(120, Math.round(totalVolumeKg / 150));
+  return Math.round(baseBurn + volumeBonus);
+}
+

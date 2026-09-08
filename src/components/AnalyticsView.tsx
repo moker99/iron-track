@@ -3,8 +3,7 @@ import {
   Award,
   Flame,
   Dumbbell,
-  TrendingUp,
-  Activity
+  TrendingUp
 } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { StorageService } from '../services/storage';
@@ -23,7 +22,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
 
   // 最近 7 天數據計算
   const past7Days = useMemo(() => {
-    const days: { dateStr: string; label: string; calories: number; protein: number; carbs: number; fat: number; hasWorkout: boolean }[] = [];
+    const days: {
+      dateStr: string;
+      label: string;
+      calories: number;
+      burnedCalories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      hasWorkout: boolean;
+    }[] = [];
     const today = new Date();
 
     for (let i = 6; i >= 0; i--) {
@@ -38,12 +46,15 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
       const dayC = dayMeals.reduce((acc, m) => acc + m.carbs, 0);
       const dayF = dayMeals.reduce((acc, m) => acc + m.fat, 0);
 
-      const hasWorkout = allWorkouts.some(w => w.date === dateStr);
+      const dayWorkouts = allWorkouts.filter(w => w.date === dateStr);
+      const dayBurn = dayWorkouts.reduce((acc, w) => acc + (w.caloriesBurned || 0), 0);
+      const hasWorkout = dayWorkouts.length > 0;
 
       days.push({
         dateStr,
         label: dayLabel,
         calories: Math.round(dayCals),
+        burnedCalories: Math.round(dayBurn),
         protein: Math.round(dayP),
         carbs: Math.round(dayC),
         fat: Math.round(dayF),
@@ -53,7 +64,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
     return days;
   }, [allMeals, allWorkouts]);
 
-  // 總訓練容量統計
+  // 總訓練容量與熱量消耗統計
   const totalVolumeAllTime = useMemo(() => {
     return allWorkouts.reduce((sum, w) => sum + w.totalVolumeKg, 0);
   }, [allWorkouts]);
@@ -62,13 +73,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
     return allWorkouts.reduce((sum, w) => sum + w.totalSets, 0);
   }, [allWorkouts]);
 
+  const totalCaloriesBurnedAllTime = useMemo(() => {
+    return allWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0);
+  }, [allWorkouts]);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>成效分析與榮譽殿堂</h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          回顧最近 7 日飲食熱量達標率、訓練頻率與動作最佳紀錄 (PR)。
+          回顧最近 7 日飲食熱量達標率、訓練消耗熱量與動作最佳紀錄 (PR)。
         </p>
       </div>
 
@@ -96,20 +111,20 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
             {totalVolumeAllTime.toLocaleString()} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kg</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-            相當於搬動了 {Math.round(totalVolumeAllTime / 1000)} 公噸重物
+            搬動約 {Math.round(totalVolumeAllTime / 1000)} 公噸重物
           </div>
         </div>
 
-        <div className="glass-card">
+        <div className="glass-card glow-cyan">
           <div className="flex items-center justify-between" style={{ marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>目標熱量與 BMI</span>
-            <Activity size={18} style={{ color: 'var(--neon-cyan)' }} />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>累計訓練消耗熱量</span>
+            <Flame size={18} style={{ color: 'var(--neon-amber)' }} />
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--neon-cyan)' }}>
-            {targets.targetCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--neon-amber)' }}>
+            {totalCaloriesBurnedAllTime.toLocaleString()} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-            BMI: {bmiInfo.bmi} ({bmiInfo.label})
+            約相當於代謝燃燒 {(totalCaloriesBurnedAllTime / 7700).toFixed(1)} kg 體脂肪
           </div>
         </div>
 
@@ -122,7 +137,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
             {prs.length} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>項突破</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-            持續挑戰更大重量與次數
+            BMI {bmiInfo.bmi} ({bmiInfo.label})
           </div>
         </div>
       </div>
@@ -190,8 +205,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ activeProfile }) =
                 {/* Workout check icon */}
                 {day.hasWorkout && (
                   <div style={{ position: 'absolute', top: 0 }}>
-                    <span className="badge badge-purple" style={{ padding: '0.1rem 0.3rem', fontSize: '0.65rem' }}>
-                      🏋️ 訓練
+                    <span className="badge badge-purple" style={{ padding: '0.1rem 0.35rem', fontSize: '0.65rem' }} title={`當日訓練消耗 ${day.burnedCalories} kcal`}>
+                      {day.burnedCalories > 0 ? `🔥 -${day.burnedCalories}k` : '🏋️ 訓練'}
                     </span>
                   </div>
                 )}

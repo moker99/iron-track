@@ -7,7 +7,9 @@ import {
   Trash2,
   Clock,
   Search,
-  X
+  X,
+  Flame,
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type {
@@ -22,6 +24,7 @@ import type {
 } from '../types';
 import { DEFAULT_ROUTINE_TEMPLATES } from '../data/defaults';
 import { StorageService } from '../services/storage';
+import { estimateWorkoutCalories } from '../utils/nutrition';
 
 interface WorkoutTrackerViewProps {
   activeProfile: UserProfile;
@@ -242,11 +245,46 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     }
   };
 
-  // Finish and save workout
-  const handleFinishWorkout = () => {
+  // Finish workout modal states
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [finishCaloriesBurned, setFinishCaloriesBurned] = useState<number>(300);
+  const [finishDurationMinutes, setFinishDurationMinutes] = useState<number>(45);
+  const [finishNotes, setFinishNotes] = useState<string>('');
+
+  // Open finish workout summary & calorie adjustment modal
+  const handleOpenFinishModal = () => {
     if (!activeSession) return;
 
-    // 計算總訓練容量 (重量 x 次數)
+    let totalVol = 0;
+    let totalSetsCompleted = 0;
+
+    activeSession.exercises.forEach(ex => {
+      ex.sets.forEach(set => {
+        if (set.completed && set.weightKg > 0 && set.reps > 0) {
+          totalVol += set.weightKg * set.reps;
+          totalSetsCompleted++;
+        }
+      });
+    });
+
+    const durationMins = Math.max(1, Math.round(elapsedSeconds / 60));
+    const estimatedCals = estimateWorkoutCalories(
+      activeProfile.weightKg,
+      durationMins,
+      totalSetsCompleted,
+      totalVol
+    );
+
+    setFinishDurationMinutes(durationMins);
+    setFinishCaloriesBurned(estimatedCals);
+    setFinishNotes('');
+    setIsFinishModalOpen(true);
+  };
+
+  // Confirm finish and save workout session
+  const handleConfirmFinishWorkout = () => {
+    if (!activeSession) return;
+
     let totalVol = 0;
     let totalSetsCompleted = 0;
 
@@ -262,8 +300,11 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     const finishedSession: WorkoutSession = {
       ...activeSession,
       endTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      durationMinutes: finishDurationMinutes,
+      caloriesBurned: Number(finishCaloriesBurned),
       totalVolumeKg: Math.round(totalVol),
       totalSets: totalSetsCompleted,
+      notes: finishNotes.trim() || undefined,
     };
 
     StorageService.addWorkoutSession(finishedSession);
@@ -271,14 +312,14 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
 
     // 觸發彩色紙屑特效！
     confetti({
-      particleCount: 100,
-      spread: 70,
+      particleCount: 120,
+      spread: 80,
       origin: { y: 0.6 }
     });
 
+    setIsFinishModalOpen(false);
     setActiveSession(null);
     setElapsedSeconds(0);
-    alert(`🎉 恭喜完成訓練！\n本次訓練容量: ${Math.round(totalVol)} kg\n完成總組數: ${totalSetsCompleted} 組`);
   };
 
   const handleDiscardWorkout = () => {
@@ -339,7 +380,7 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   <span>{formatStopwatch(elapsedSeconds)}</span>
                 </div>
 
-                <button className="btn btn-primary" onClick={handleFinishWorkout}>
+                <button className="btn btn-primary" onClick={handleOpenFinishModal}>
                   <Check size={18} />
                   <span>完成訓練</span>
                 </button>
@@ -604,11 +645,20 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                           <span className="badge badge-green">{s.date}</span>
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          時間: {s.startTime} ~ {s.endTime || '完成'} · 動作數: {s.exercises.length}
+                          時間: {s.startTime} ~ {s.endTime || '完成'} {s.durationMinutes ? `(${s.durationMinutes} 分鐘)` : ''} · 動作數: {s.exercises.length}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-4">
+                        {Boolean(s.caloriesBurned) && (
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>訓練消耗</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-amber)' }}>
+                              {s.caloriesBurned} <span style={{ fontSize: '0.75rem' }}>kcal</span>
+                            </div>
+                          </div>
+                        )}
+
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>總訓練容量</div>
                           <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-green)' }}>
@@ -810,6 +860,121 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ======================= FINISH WORKOUT CONFIRMATION MODAL ======================= */}
+      {isFinishModalOpen && activeSession && (() => {
+        let totalVol = 0;
+        let totalSetsCompleted = 0;
+        activeSession.exercises.forEach(ex => {
+          ex.sets.forEach(set => {
+            if (set.completed && set.weightKg > 0 && set.reps > 0) {
+              totalVol += set.weightKg * set.reps;
+              totalSetsCompleted++;
+            }
+          });
+        });
+
+        return (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ maxWidth: '520px' }}>
+              <div className="modal-header">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={20} style={{ color: 'var(--neon-green)' }} />
+                  <h3 className="modal-title">恭喜完成訓練！確認成效與熱量</h3>
+                </div>
+                <button className="btn btn-ghost btn-icon" onClick={() => setIsFinishModalOpen(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="modal-body flex flex-col gap-4">
+                {/* Stats Summary Card */}
+                <div className="grid-cols-3 grid-responsive-3 gap-2" style={{ textAlign: 'center' }}>
+                  <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.75rem', borderRadius: '0.65rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>訓練時長</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {finishDurationMinutes} <span style={{ fontSize: '0.75rem' }}>分鐘</span>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.75rem', borderRadius: '0.65rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>完成總組數</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-purple)' }}>
+                      {totalSetsCompleted} <span style={{ fontSize: '0.75rem' }}>組</span>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.75rem', borderRadius: '0.65rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>總訓練容量</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-green)' }}>
+                      {totalVol.toLocaleString()} <span style={{ fontSize: '0.75rem' }}>kg</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calorie Burn Input Card */}
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '0.85rem',
+                  padding: '1rem',
+                }}>
+                  <div className="flex items-center gap-2" style={{ marginBottom: '0.35rem' }}>
+                    <Flame size={18} style={{ color: 'var(--neon-amber)' }} />
+                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--neon-amber)' }}>
+                      本次運動消耗熱量 (kcal)
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                    系統已依據體重 ({activeProfile.weightKg}kg) 與 ACSM 重訓代謝當量預先估算，您亦可依據 Apple Watch / Garmin 實測值手動修改。
+                  </p>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      max="3000"
+                      className="input"
+                      style={{
+                        fontSize: '1.5rem',
+                        fontWeight: 900,
+                        textAlign: 'center',
+                        color: 'var(--neon-amber)',
+                        padding: '0.5rem'
+                      }}
+                      value={finishCaloriesBurned}
+                      onChange={e => setFinishCaloriesBurned(Number(e.target.value))}
+                    />
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)' }}>kcal</span>
+                  </div>
+                </div>
+
+                {/* Optional Workout Notes */}
+                <div>
+                  <label className="label">訓練筆記 / 身體狀態 (選填)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="例如: 今天臥推手感極佳、睡眠充足力量充沛"
+                    value={finishNotes}
+                    onChange={e => setFinishNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setIsFinishModalOpen(false)}>
+                  返回繼續練
+                </button>
+                <button type="button" className="btn btn-primary" onClick={handleConfirmFinishWorkout}>
+                  <Check size={16} />
+                  <span>確認儲存訓練日誌</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

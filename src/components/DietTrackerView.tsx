@@ -86,6 +86,15 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     refreshMealLogs(newDateStr);
   };
 
+  // 當日訓練消耗
+  const dayWorkouts = useMemo(() => {
+    return StorageService.getWorkoutSessions(activeProfile.id).filter(w => w.date === selectedDate);
+  }, [activeProfile.id, selectedDate]);
+
+  const dayWorkoutBurn = useMemo(() => {
+    return dayWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0);
+  }, [dayWorkouts]);
+
   // 營養素目標
   const targets = useMemo(() => getUserNutritionTargets(activeProfile), [activeProfile]);
 
@@ -101,15 +110,18 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
       c += m.carbs;
       f += m.fat;
     });
+    const dynamicTarget = targets.targetCalories + dayWorkoutBurn;
     return {
       calories: Math.round(cal),
       protein: Math.round(p * 10) / 10,
       carbs: Math.round(c * 10) / 10,
       fat: Math.round(f * 10) / 10,
-      remainingCalories: Math.round(targets.targetCalories - cal),
-      formulaVerifiedCalories: Math.round((p * 4) + (c * 4) + (f * 9))
+      remainingCalories: Math.round(dynamicTarget - cal),
+      formulaVerifiedCalories: Math.round((p * 4) + (c * 4) + (f * 9)),
+      workoutBurn: dayWorkoutBurn,
+      dynamicTarget
     };
-  }, [mealLogs, targets.targetCalories]);
+  }, [mealLogs, targets.targetCalories, dayWorkoutBurn]);
 
   const filteredFoods = useMemo(() => {
     return allFoods.filter(food => {
@@ -306,25 +318,43 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           </button>
         </div>
 
+        {/* Workout burn bonus banner */}
+        {totals.workoutBurn > 0 && (
+          <div style={{
+            background: 'rgba(0, 245, 155, 0.08)',
+            border: '1px solid rgba(0, 245, 155, 0.25)',
+            borderRadius: '0.75rem',
+            padding: '0.65rem 1rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.85rem'
+          }}>
+            <Flame size={18} style={{ color: 'var(--neon-green)', flexShrink: 0 }} />
+            <span>今日已記錄 <strong>{dayWorkouts.length} 次訓練</strong>，運動消耗 <strong>+{totals.workoutBurn} kcal</strong>！系統已將消耗熱量自動計入當日動態預算。</span>
+          </div>
+        )}
+
         {/* Calories Progress & Remaining */}
         <div className="grid-cols-4 grid-responsive-2 gap-4" style={{ marginBottom: '1.5rem' }}>
           <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>目標總熱量 (Target)</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>基準目標熱量 (Target)</div>
             <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-main)' }}>
               {targets.targetCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-              BMR {targets.bmr} · TDEE {targets.tdee}
+              {totals.workoutBurn > 0 ? `TDEE ${targets.tdee} + 運動 ${totals.workoutBurn}k` : `BMR ${targets.bmr} · TDEE ${targets.tdee}`}
             </div>
           </div>
 
           <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>已攝取熱量 (Consumed)</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: totals.calories > targets.targetCalories ? 'var(--neon-rose)' : 'var(--neon-green)' }}>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: totals.calories > totals.dynamicTarget ? 'var(--neon-rose)' : 'var(--neon-green)' }}>
               {totals.calories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-              達成率 {Math.round((totals.calories / targets.targetCalories) * 100)}%
+              佔動態預算 {Math.round((totals.calories / totals.dynamicTarget) * 100)}%
             </div>
           </div>
 
@@ -334,7 +364,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               {totals.remainingCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-              {totals.remainingCalories >= 0 ? '仍在熱量預算範圍內' : '已超出預算赤字'}
+              {totals.workoutBurn > 0 ? `含運動 +${totals.workoutBurn}k 加成` : (totals.remainingCalories >= 0 ? '仍在熱量預算範圍內' : '已超出預算赤字')}
             </div>
           </div>
 
