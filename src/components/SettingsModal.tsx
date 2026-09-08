@@ -26,6 +26,8 @@ interface SettingsModalProps {
   onEditProfile: (profile: UserProfile) => void;
   onAddNewProfile: () => void;
   onReloadAllData: () => void;
+  onManualSync?: () => Promise<{ success: boolean; message: string }>;
+  onCloudStatusChange?: (connected: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -36,6 +38,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onEditProfile,
   onAddNewProfile,
   onReloadAllData,
+  onManualSync,
+  onCloudStatusChange,
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'cloud' | 'backup' | 'guide'>('users');
   
@@ -43,11 +47,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(StorageService.getCloudConfig());
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
 
-  const handleSaveCloudConfig = (newConfig: CloudConfig) => {
+  const handleSaveCloudConfig = async (newConfig: CloudConfig) => {
     setCloudConfig(newConfig);
     StorageService.saveCloudConfig(newConfig);
+    const connected = Boolean(newConfig.syncEnabled && newConfig.supabaseUrl && newConfig.supabaseAnonKey);
+    onCloudStatusChange?.(connected);
+    if (connected && onManualSync) {
+      await onManualSync();
+    }
   };
 
   const handleTestConnection = async () => {
@@ -60,6 +70,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const res = await testSupabaseConnection(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
     setTestResult(res);
     setIsTesting(false);
+    if (res.success) {
+      // 自動啟用並觸發同步
+      const updated = { ...cloudConfig, syncEnabled: true };
+      setCloudConfig(updated);
+      StorageService.saveCloudConfig(updated);
+      onCloudStatusChange?.(true);
+      if (onManualSync) {
+        await onManualSync();
+      }
+    }
+  };
+
+  const handleTriggerSyncNow = async () => {
+    if (!onManualSync) return;
+    setIsSyncing(true);
+    const res = await onManualSync();
+    setIsSyncing(false);
+    setTestResult({
+      success: res.success,
+      message: res.success ? '🎉 雲端雙向同步成功！' : `同步失敗: ${res.message}`
+    });
   };
 
   const handleCopySql = () => {
@@ -363,7 +394,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span>啟用雲端同步</span>
                 </label>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {Boolean(cloudConfig.supabaseUrl && cloudConfig.supabaseAnonKey) && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ borderColor: 'var(--neon-green)', color: 'var(--neon-green)' }}
+                      disabled={isSyncing}
+                      onClick={handleTriggerSyncNow}
+                    >
+                      {isSyncing ? '同步中...' : '🔄 立即雲端同步'}
+                    </button>
+                  )}
                   <button
                     className="btn btn-secondary btn-sm"
                     disabled={isTesting}

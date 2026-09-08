@@ -15,8 +15,13 @@ import {
   INITIAL_USER_PROFILES,
 } from '../data/defaults';
 import { calculate1RM } from '../utils/nutrition';
+import {
+  SupabaseSyncService,
+  getCloudConfig,
+  saveCloudConfig,
+} from './supabase';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   PROFILES: 'irontrack_profiles',
   ACTIVE_PROFILE_ID: 'irontrack_active_profile_id',
   MEAL_LOGS: 'irontrack_meal_logs',
@@ -70,6 +75,8 @@ export class StorageService {
       profiles.push(profile);
     }
     localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
+    // 雲端即時同步
+    SupabaseSyncService.pushProfile(profile);
   }
 
   static deleteProfile(profileId: string): void {
@@ -79,6 +86,8 @@ export class StorageService {
     if (this.getActiveProfileId() === profileId) {
       this.setActiveProfileId(profiles[0].id);
     }
+    // 雲端即時同步
+    SupabaseSyncService.deleteProfile(profileId);
   }
 
   // ==================== 飲食記錄 (Meal Logs) 管理 ====================
@@ -101,11 +110,15 @@ export class StorageService {
     const all = this.getMealLogs();
     all.unshift(entry);
     localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.pushMealEntry(entry);
   }
 
   static deleteMealEntry(id: string): void {
     const all = this.getMealLogs().filter(m => m.id !== id);
     localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.deleteMealEntry(id);
   }
 
   // ==================== 訓練紀錄 (Workout Sessions) 管理 ====================
@@ -124,11 +137,15 @@ export class StorageService {
     const all = this.getWorkoutSessions();
     all.unshift(session);
     localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.pushWorkoutSession(session);
   }
 
   static deleteWorkoutSession(id: string): void {
     const all = this.getWorkoutSessions().filter(s => s.id !== id);
     localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.deleteWorkoutSession(id);
   }
 
   /**
@@ -142,10 +159,11 @@ export class StorageService {
       session.exercises.forEach(ex => {
         ex.sets.forEach(set => {
           if (!set.completed || set.weightKg <= 0 || set.reps <= 0) return;
-          const e1rm = calculate1RM(set.weightKg, set.reps);
-          const current = prMap.get(ex.exerciseId);
 
-          if (!current || e1rm > current.estimatedOneRepMax) {
+          const e1rm = calculate1RM(set.weightKg, set.reps);
+          const currentPr = prMap.get(ex.exerciseId);
+
+          if (!currentPr || e1rm > currentPr.estimatedOneRepMax) {
             prMap.set(ex.exerciseId, {
               exerciseId: ex.exerciseId,
               exerciseName: ex.exerciseName,
@@ -179,6 +197,8 @@ export class StorageService {
       const customList: Exercise[] = custom ? JSON.parse(custom) : [];
       customList.push(exercise);
       localStorage.setItem(STORAGE_KEYS.CUSTOM_EXERCISES, JSON.stringify(customList));
+      // 雲端即時同步 (標記建立者)
+      SupabaseSyncService.pushCustomExercise(exercise, this.getActiveProfileId());
     } catch (e) {
       console.error(e);
     }
@@ -200,6 +220,8 @@ export class StorageService {
       const customList: FoodItem[] = custom ? JSON.parse(custom) : [];
       customList.push(food);
       localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(customList));
+      // 雲端即時同步 (標記建立者)
+      SupabaseSyncService.pushCustomFood(food, this.getActiveProfileId());
     } catch (e) {
       console.error(e);
     }
@@ -222,6 +244,8 @@ export class StorageService {
       const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
       customList.push(routine);
       localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(customList));
+      // 雲端即時同步
+      SupabaseSyncService.pushRoutineTemplate(routine);
     } catch (e) {
       console.error(e);
     }
@@ -233,6 +257,8 @@ export class StorageService {
       const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
       const filtered = customList.filter(r => r.id !== id);
       localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(filtered));
+      // 雲端即時同步
+      SupabaseSyncService.deleteRoutineTemplate(id);
     } catch (e) {
       console.error(e);
     }
@@ -240,16 +266,11 @@ export class StorageService {
 
   // ==================== 雲端設定 (Supabase Cloud Config) ====================
   static getCloudConfig(): CloudConfig {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.CLOUD_CONFIG);
-      return data ? JSON.parse(data) : { supabaseUrl: '', supabaseAnonKey: '', syncEnabled: false };
-    } catch {
-      return { supabaseUrl: '', supabaseAnonKey: '', syncEnabled: false };
-    }
+    return getCloudConfig();
   }
 
   static saveCloudConfig(config: CloudConfig): void {
-    localStorage.setItem(STORAGE_KEYS.CLOUD_CONFIG, JSON.stringify(config));
+    saveCloudConfig(config);
   }
 
   // ==================== 資料備份與還原 (JSON Export / Import) ====================

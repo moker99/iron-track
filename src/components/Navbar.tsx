@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dumbbell, Utensils, LayoutDashboard, LineChart, Settings, Plus, ChevronDown, Check, Cloud } from 'lucide-react';
+import { Dumbbell, Utensils, LayoutDashboard, LineChart, Settings, Plus, ChevronDown, Check, RefreshCw, CloudOff } from 'lucide-react';
 import type { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -11,6 +11,8 @@ interface NavbarProps {
   onOpenNewProfile: () => void;
   onOpenSettings: () => void;
   isCloudConnected: boolean;
+  isSyncing?: boolean;
+  onManualSync?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,6 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNewProfile,
   onOpenSettings,
   isCloudConnected,
+  isSyncing = false,
+  onManualSync,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -81,11 +85,43 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* User Profile & Actions */}
           <div className="flex items-center gap-2">
             {/* Cloud Status Indicator */}
-            {isCloudConnected && (
-              <span className="badge badge-cyan" title="Supabase 雲端同步已連線" style={{ cursor: 'pointer' }} onClick={onOpenSettings}>
-                <Cloud size={12} />
-                <span>雲端中</span>
-              </span>
+            {isCloudConnected ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{
+                  padding: '0.3rem 0.65rem',
+                  fontSize: '0.75rem',
+                  gap: '0.35rem',
+                  borderColor: 'rgba(0, 245, 155, 0.4)',
+                  background: 'rgba(0, 245, 155, 0.08)',
+                }}
+                title="Supabase 雲端已連線，點擊立即手動雙向同步"
+                onClick={onManualSync}
+                disabled={isSyncing}
+              >
+                <RefreshCw size={12} className={isSyncing ? 'spin-animation' : ''} style={{ color: 'var(--neon-green)' }} />
+                <span style={{ color: 'var(--neon-green)', fontWeight: 600 }}>
+                  {isSyncing ? '同步中...' : '雲端連線中'}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{
+                  padding: '0.3rem 0.65rem',
+                  fontSize: '0.75rem',
+                  gap: '0.35rem',
+                  color: 'var(--text-muted)',
+                  borderColor: 'var(--border-color)',
+                }}
+                title="尚未設定 Supabase 雲端（目前使用本機離線模式，點擊前往設定串接）"
+                onClick={onOpenSettings}
+              >
+                <CloudOff size={12} />
+                <span>離線模式 (點此串接)</span>
+              </button>
             )}
 
             {/* Profile Dropdown */}

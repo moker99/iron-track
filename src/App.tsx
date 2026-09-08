@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { UserProfile } from './types';
 import { StorageService } from './services/storage';
-import { getSupabaseClient } from './services/supabase';
+import { getSupabaseClient, SupabaseSyncService } from './services/supabase';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { WorkoutTrackerView } from './components/WorkoutTrackerView';
@@ -27,8 +27,9 @@ export const App: React.FC = () => {
   // Floating Rest Timer
   const [restTimerSeconds, setRestTimerSeconds] = useState<number | null>(null);
 
-  // Cloud status
+  // Cloud & sync status
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Refresh active profile whenever ID or profiles change
   useEffect(() => {
@@ -39,10 +40,25 @@ export const App: React.FC = () => {
     }
   }, [activeProfileId, profiles]);
 
-  // Check Supabase connection
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    const res = await SupabaseSyncService.syncAllFromCloud();
+    if (res.success) {
+      handleReloadAllData();
+    }
+    setIsSyncing(false);
+    return res;
+  };
+
+  // Check Supabase connection and auto-sync on mount
   useEffect(() => {
     const client = getSupabaseClient();
-    setIsCloudConnected(Boolean(client));
+    const connected = Boolean(client);
+    setIsCloudConnected(connected);
+
+    if (connected) {
+      handleManualSync();
+    }
   }, []);
 
   const handleSelectProfile = (id: string) => {
@@ -91,6 +107,8 @@ export const App: React.FC = () => {
         onOpenNewProfile={handleOpenNewProfile}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         isCloudConnected={isCloudConnected}
+        isSyncing={isSyncing}
+        onManualSync={handleManualSync}
       />
 
       {/* Main Content Area */}
@@ -152,6 +170,8 @@ export const App: React.FC = () => {
           onEditProfile={handleOpenEditProfile}
           onAddNewProfile={handleOpenNewProfile}
           onReloadAllData={handleReloadAllData}
+          onManualSync={handleManualSync}
+          onCloudStatusChange={(c: boolean) => setIsCloudConnected(c)}
         />
       )}
     </div>
