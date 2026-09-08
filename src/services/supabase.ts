@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.workout_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. 訓練課表模板表 (Routine Templates - 支援雲端動態新增與共享)
+-- 4. 訓練課表模板表 (支援個人專屬或團隊共享)
 CREATE TABLE IF NOT EXISTS public.routine_templates (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -104,6 +104,33 @@ CREATE TABLE IF NOT EXISTS public.routine_templates (
   description TEXT,
   exercises JSONB NOT NULL DEFAULT '[]'::jsonb,
   is_custom BOOLEAN DEFAULT true,
+  is_shared BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 5. 團隊自訂動作庫 (Custom Exercises - 任何成員新增，全隊皆可查閱使用)
+CREATE TABLE IF NOT EXISTS public.custom_exercises (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  equipment TEXT NOT NULL,
+  primary_muscle TEXT NOT NULL,
+  created_by TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 6. 團隊自訂食材庫 (Custom Foods - 任何成員新增，全隊皆可查閱使用)
+CREATE TABLE IF NOT EXISTS public.custom_foods (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  calories NUMERIC NOT NULL,
+  protein NUMERIC NOT NULL,
+  carbs NUMERIC NOT NULL,
+  fat NUMERIC NOT NULL,
+  serving_size TEXT,
+  base_weight_grams NUMERIC DEFAULT 100,
+  category TEXT,
+  created_by TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -112,10 +139,14 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.meal_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workout_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.routine_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_exercises ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_foods ENABLE ROW LEVEL SECURITY;
 
--- 允許持有金鑰的使用者自由讀寫（個人/朋友私密共享）
+-- 允許持有金鑰的 5 位成員自由讀寫共享
 CREATE POLICY "Public full access profiles" ON public.profiles FOR ALL USING (true);
 CREATE POLICY "Public full access meal_entries" ON public.meal_entries FOR ALL USING (true);
 CREATE POLICY "Public full access workout_sessions" ON public.workout_sessions FOR ALL USING (true);
 CREATE POLICY "Public full access routine_templates" ON public.routine_templates FOR ALL USING (true);
+CREATE POLICY "Public full access custom_exercises" ON public.custom_exercises FOR ALL USING (true);
+CREATE POLICY "Public full access custom_foods" ON public.custom_foods FOR ALL USING (true);
 `;

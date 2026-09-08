@@ -69,6 +69,8 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
   const [newRoutineTitle, setNewRoutineTitle] = useState('');
   const [newRoutineCategory, setNewRoutineCategory] = useState('推力專項');
   const [newRoutineDesc, setNewRoutineDesc] = useState('');
+  const [newRoutineIsShared, setNewRoutineIsShared] = useState<boolean>(true);
+  const [routineFilter, setRoutineFilter] = useState<'all' | 'mine' | 'shared'>('all');
   const [newRoutineExercises, setNewRoutineExercises] = useState<{
     exerciseId: string;
     exerciseName: string;
@@ -275,6 +277,7 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     setNewRoutineTitle('');
     setNewRoutineCategory('推力專項');
     setNewRoutineDesc('');
+    setNewRoutineIsShared(true);
     setNewRoutineExercises([]);
     setSelectedExForRoutine(allExercises[0]?.id || '');
     setIsCreateRoutineOpen(true);
@@ -322,7 +325,9 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
       description: newRoutineDesc.trim() || '使用者自訂訓練課表',
       exercises: newRoutineExercises,
       userId: activeProfile.id,
+      authorName: activeProfile.name,
       isCustom: true,
+      isShared: newRoutineIsShared,
       createdAt: new Date().toISOString(),
     };
 
@@ -331,10 +336,15 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     setIsCreateRoutineOpen(false);
   };
 
-  const handleDeleteRoutine = (e: React.MouseEvent, id: string) => {
+  const handleDeleteRoutine = (e: React.MouseEvent, routine: WorkoutRoutineTemplate) => {
     e.stopPropagation();
-    if (window.confirm('確定要刪除這筆自訂課表模板嗎？')) {
-      StorageService.deleteCustomRoutine(id);
+    const canDelete = activeProfile.role === 'admin' || routine.userId === activeProfile.id;
+    if (!canDelete) {
+      alert('您只能刪除自己建立的自訂課表（或由管理員操作）。');
+      return;
+    }
+    if (window.confirm(`確定要刪除「${routine.title}」課表模板嗎？`)) {
+      StorageService.deleteCustomRoutine(routine.id);
       setRoutines(StorageService.getAllRoutines());
     }
   };
@@ -351,6 +361,7 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     setNewRoutineTitle(`${activeSession.routineTitle} (已存課表)`);
     setNewRoutineCategory('自訂分化');
     setNewRoutineDesc(`根據 ${activeSession.date} 訓練紀錄轉存之課表模板`);
+    setNewRoutineIsShared(false);
     setNewRoutineExercises(routineExercises);
     setSelectedExForRoutine(allExercises[0]?.id || '');
     setIsCreateRoutineOpen(true);
@@ -446,6 +457,26 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
       setSessions(StorageService.getWorkoutSessions(activeProfile.id));
     }
   };
+
+  // 課表過濾：支援個人專屬與團隊共享，兼顧隱私與管理員存取權限
+  const visibleRoutines = useMemo(() => {
+    return routines.filter(tmpl => {
+      // 權限判定：
+      // 1. 系統預設課表 (!tmpl.isCustom)：全體 5 位成員皆可見
+      // 2. 團隊共享課表 (tmpl.isShared !== false)：全體 5 位成員皆可見
+      // 3. 個人專屬課表 (tmpl.isShared === false)：僅建立者本人或 Admin 管理員可見
+      const canAccess = !tmpl.isCustom || tmpl.isShared !== false || tmpl.userId === activeProfile.id || activeProfile.role === 'admin';
+      if (!canAccess) return false;
+
+      if (routineFilter === 'mine') {
+        return tmpl.userId === activeProfile.id;
+      }
+      if (routineFilter === 'shared') {
+        return tmpl.isShared !== false || !tmpl.isCustom;
+      }
+      return true;
+    });
+  }, [routines, activeProfile.id, activeProfile.role, routineFilter]);
 
   // 各分類動作數量統計
   const categoryCounts = useMemo(() => {
@@ -709,76 +740,140 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
 
           {/* Routine Templates Grid */}
           <div>
-            <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.85rem' }}>
+            <div className="flex items-center justify-between flex-wrap gap-3" style={{ marginBottom: '0.85rem' }}>
               <div className="flex items-center gap-2">
                 <Dumbbell size={18} style={{ color: 'var(--neon-green)' }} />
-                <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>健身訓練課表庫 ({routines.length})</h2>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>健身訓練課表庫 ({visibleRoutines.length})</h2>
               </div>
 
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleOpenCreateRoutine}
-              >
-                <Plus size={15} style={{ color: 'var(--neon-green)' }} />
-                <span>＋ 建立自訂專屬課表</span>
-              </button>
-            </div>
-
-            <div className="grid-cols-2 grid-responsive-2 gap-4">
-              {routines.map(tmpl => (
-                <div key={tmpl.id} className="glass-card glow-green flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between" style={{ marginBottom: '0.4rem' }}>
-                      <div className="flex items-center gap-2">
-                        <span className="badge badge-purple">{tmpl.category}</span>
-                        {tmpl.isCustom && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>自訂</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tmpl.exercises.length} 個動作</span>
-                        {tmpl.isCustom && (
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-icon btn-sm"
-                            style={{ color: 'var(--neon-rose)', padding: '0.1rem' }}
-                            title="刪除此自訂課表"
-                            onClick={(e) => handleDeleteRoutine(e, tmpl.id)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                      {tmpl.title}
-                    </h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
-                      {tmpl.description}
-                    </p>
-
-                    {/* Exercises Preview */}
-                    <div className="flex flex-col gap-1" style={{ marginBottom: '1rem' }}>
-                      {tmpl.exercises.map((e, eIdx) => (
-                        <div key={`${e.exerciseId}-${eIdx}`} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>• {e.exerciseName}</span>
-                          <span>{e.targetSets} 組 x {e.targetReps} 次</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 課表過濾分類切換 */}
+                <div style={{
+                  display: 'flex',
+                  background: 'rgba(12, 19, 34, 0.7)',
+                  padding: '0.2rem',
+                  borderRadius: '0.6rem',
+                  border: '1px solid var(--border-color)',
+                  gap: '0.2rem'
+                }}>
                   <button
-                    className="btn btn-secondary"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => handleStartFromTemplate(tmpl)}
+                    type="button"
+                    className={`btn btn-sm ${routineFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => setRoutineFilter('all')}
                   >
-                    <Play size={15} style={{ color: 'var(--neon-green)' }} />
-                    <span>載入課表並開始訓練</span>
+                    全部 ({routines.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${routineFilter === 'shared' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => setRoutineFilter('shared')}
+                  >
+                    🌐 團隊共享
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${routineFilter === 'mine' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => setRoutineFilter('mine')}
+                  >
+                    🔒 我的專屬課表
                   </button>
                 </div>
-              ))}
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleOpenCreateRoutine}
+                >
+                  <Plus size={15} style={{ color: 'var(--neon-green)' }} />
+                  <span>＋ 建立新課表</span>
+                </button>
+              </div>
             </div>
+
+            {visibleRoutines.length === 0 ? (
+              <div className="glass-card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                <p>目前在此分類下尚無課表。</p>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginTop: '0.75rem' }}
+                  onClick={handleOpenCreateRoutine}
+                >
+                  立即建立一張個人或團隊課表
+                </button>
+              </div>
+            ) : (
+              <div className="grid-cols-2 grid-responsive-2 gap-4">
+                {visibleRoutines.map(tmpl => (
+                  <div key={tmpl.id} className="glass-card glow-green flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between" style={{ marginBottom: '0.4rem' }}>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="badge badge-purple">{tmpl.category}</span>
+                          {tmpl.isCustom ? (
+                            tmpl.isShared !== false ? (
+                              <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>
+                                🌐 團隊共享 {tmpl.authorName ? `· ${tmpl.authorName}` : ''}
+                              </span>
+                            ) : (
+                              <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>
+                                🔒 個人專屬 {tmpl.authorName && tmpl.userId !== activeProfile.id ? `· ${tmpl.authorName}` : ''}
+                              </span>
+                            )
+                          ) : (
+                            <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>⚡ 系統預設</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tmpl.exercises.length} 個動作</span>
+                          {tmpl.isCustom && (activeProfile.role === 'admin' || tmpl.userId === activeProfile.id) && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-icon btn-sm"
+                              style={{ color: 'var(--neon-rose)', padding: '0.1rem' }}
+                              title="刪除此自訂課表"
+                              onClick={(e) => handleDeleteRoutine(e, tmpl)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                        {tmpl.title}
+                      </h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
+                        {tmpl.description}
+                      </p>
+
+                      {/* Exercises Preview */}
+                      <div className="flex flex-col gap-1" style={{ marginBottom: '1rem' }}>
+                        {tmpl.exercises.map((e, eIdx) => (
+                          <div key={`${e.exerciseId}-${eIdx}`} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>• {e.exerciseName}</span>
+                            <span>{e.targetSets} 組 x {e.targetReps} 次</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      className="btn btn-secondary"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={() => handleStartFromTemplate(tmpl)}
+                    >
+                      <Play size={15} style={{ color: 'var(--neon-green)' }} />
+                      <span>載入課表並開始訓練</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Past Workout Sessions History */}
@@ -1218,6 +1313,40 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                     value={newRoutineDesc}
                     onChange={e => setNewRoutineDesc(e.target.value)}
                   />
+                </div>
+
+                {/* 課表可見性: 團隊公開共享 vs 個人專屬 */}
+                <div>
+                  <label className="label">課表可見性 (共享與權限設定)</label>
+                  <div className="grid-cols-2 grid-responsive-2 gap-2">
+                    <button
+                      type="button"
+                      className={`btn ${newRoutineIsShared ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.6rem 0.85rem', justifyContent: 'flex-start', textAlign: 'left' }}
+                      onClick={() => setNewRoutineIsShared(true)}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>🌐 團隊公開共享</div>
+                        <div style={{ fontSize: '0.72rem', opacity: 0.8, marginTop: '0.15rem' }}>
+                          全隊 5 位成員皆可在課表庫中看見並自由練此課表
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`btn ${!newRoutineIsShared ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.6rem 0.85rem', justifyContent: 'flex-start', textAlign: 'left' }}
+                      onClick={() => setNewRoutineIsShared(false)}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>🔒 個人專屬私密課表</div>
+                        <div style={{ fontSize: '0.72rem', opacity: 0.8, marginTop: '0.15rem' }}>
+                          僅自己與管理員可見，不公開給其他隊員
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Exercises in routine */}

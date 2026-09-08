@@ -80,7 +80,9 @@ export interface WorkoutRoutineTemplate {
     targetReps: number;
   }[];
   userId?: string;
+  authorName?: string;
   isCustom?: boolean;
+  isShared?: boolean;
   createdAt?: string;
 }
 
