@@ -79,6 +79,9 @@ export interface WorkoutRoutineTemplate {
     targetSets: number;
     targetReps: number;
   }[];
+  userId?: string;
+  isCustom?: boolean;
+  createdAt?: string;
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';

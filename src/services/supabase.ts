@@ -95,13 +95,27 @@ CREATE TABLE IF NOT EXISTS public.workout_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 4. 訓練課表模板表 (Routine Templates - 支援雲端動態新增與共享)
+CREATE TABLE IF NOT EXISTS public.routine_templates (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  description TEXT,
+  exercises JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_custom BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- 啟用 RLS 安全策略
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.meal_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workout_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.routine_templates ENABLE ROW LEVEL SECURITY;
 
--- 允許持有匿名金鑰的使用者自由讀寫（個人/朋友私密共用）
+-- 允許持有金鑰的使用者自由讀寫（個人/朋友私密共享）
 CREATE POLICY "Public full access profiles" ON public.profiles FOR ALL USING (true);
 CREATE POLICY "Public full access meal_entries" ON public.meal_entries FOR ALL USING (true);
 CREATE POLICY "Public full access workout_sessions" ON public.workout_sessions FOR ALL USING (true);
+CREATE POLICY "Public full access routine_templates" ON public.routine_templates FOR ALL USING (true);
 `;

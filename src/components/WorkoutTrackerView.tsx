@@ -22,7 +22,6 @@ import type {
   WorkoutSession,
   WorkoutSet
 } from '../types';
-import { DEFAULT_ROUTINE_TEMPLATES } from '../data/defaults';
 import { StorageService } from '../services/storage';
 import { estimateWorkoutCalories } from '../utils/nutrition';
 
@@ -61,6 +60,23 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
   const [allExercises, setAllExercises] = useState<Exercise[]>(() =>
     StorageService.getAllExercises()
   );
+  const [routines, setRoutines] = useState<WorkoutRoutineTemplate[]>(() =>
+    StorageService.getAllRoutines()
+  );
+
+  // Custom routine template modal states
+  const [isCreateRoutineOpen, setIsCreateRoutineOpen] = useState(false);
+  const [newRoutineTitle, setNewRoutineTitle] = useState('');
+  const [newRoutineCategory, setNewRoutineCategory] = useState('推力專項');
+  const [newRoutineDesc, setNewRoutineDesc] = useState('');
+  const [newRoutineExercises, setNewRoutineExercises] = useState<{
+    exerciseId: string;
+    exerciseName: string;
+    category: ExerciseCategory;
+    targetSets: number;
+    targetReps: number;
+  }[]>([]);
+  const [selectedExForRoutine, setSelectedExForRoutine] = useState<string>('');
 
   // Active workout session state
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
@@ -254,6 +270,92 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     }
   };
 
+  // ==================== 自訂課表模板 (Custom Routine Templates) 管理 ====================
+  const handleOpenCreateRoutine = () => {
+    setNewRoutineTitle('');
+    setNewRoutineCategory('推力專項');
+    setNewRoutineDesc('');
+    setNewRoutineExercises([]);
+    setSelectedExForRoutine(allExercises[0]?.id || '');
+    setIsCreateRoutineOpen(true);
+  };
+
+  const handleAddExerciseToRoutineDraft = () => {
+    const ex = allExercises.find(e => e.id === selectedExForRoutine);
+    if (!ex) return;
+    setNewRoutineExercises(prev => [
+      ...prev,
+      {
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        category: ex.category,
+        targetSets: 3,
+        targetReps: 10,
+      }
+    ]);
+  };
+
+  const handleRemoveExerciseFromRoutineDraft = (index: number) => {
+    setNewRoutineExercises(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateRoutineExerciseDraft = (index: number, field: 'targetSets' | 'targetReps', val: number) => {
+    setNewRoutineExercises(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      return copy;
+    });
+  };
+
+  const handleSaveCustomRoutine = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoutineTitle.trim()) return;
+    if (newRoutineExercises.length === 0) {
+      alert('請至少為課表新增一個動作！');
+      return;
+    }
+
+    const newRoutine: WorkoutRoutineTemplate = {
+      id: `routine-custom-${Date.now()}`,
+      title: newRoutineTitle.trim(),
+      category: newRoutineCategory.trim() || '自訂專項',
+      description: newRoutineDesc.trim() || '使用者自訂訓練課表',
+      exercises: newRoutineExercises,
+      userId: activeProfile.id,
+      isCustom: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    StorageService.addCustomRoutine(newRoutine);
+    setRoutines(StorageService.getAllRoutines());
+    setIsCreateRoutineOpen(false);
+  };
+
+  const handleDeleteRoutine = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (window.confirm('確定要刪除這筆自訂課表模板嗎？')) {
+      StorageService.deleteCustomRoutine(id);
+      setRoutines(StorageService.getAllRoutines());
+    }
+  };
+
+  const handleSaveActiveSessionAsRoutine = () => {
+    if (!activeSession || activeSession.exercises.length === 0) return;
+    const routineExercises = activeSession.exercises.map(ex => ({
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exerciseName,
+      category: ex.category,
+      targetSets: ex.sets.length || 3,
+      targetReps: ex.sets[0]?.reps || 10,
+    }));
+    setNewRoutineTitle(`${activeSession.routineTitle} (已存課表)`);
+    setNewRoutineCategory('自訂分化');
+    setNewRoutineDesc(`根據 ${activeSession.date} 訓練紀錄轉存之課表模板`);
+    setNewRoutineExercises(routineExercises);
+    setSelectedExForRoutine(allExercises[0]?.id || '');
+    setIsCreateRoutineOpen(true);
+  };
+
   // Finish workout modal states
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [finishCaloriesBurned, setFinishCaloriesBurned] = useState<number>(300);
@@ -405,6 +507,15 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   <Clock size={20} />
                   <span>{formatStopwatch(elapsedSeconds)}</span>
                 </div>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  title="將目前正在進行的動作組合存為新的自訂課表模板"
+                  onClick={handleSaveActiveSessionAsRoutine}
+                >
+                  💾 存為課表模板
+                </button>
 
                 <button className="btn btn-primary" onClick={handleOpenFinishModal}>
                   <Check size={18} />
@@ -598,20 +709,45 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
 
           {/* Routine Templates Grid */}
           <div>
-            <div className="flex items-center justify-between" style={{ marginBottom: '0.85rem' }}>
+            <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.85rem' }}>
               <div className="flex items-center gap-2">
                 <Dumbbell size={18} style={{ color: 'var(--neon-green)' }} />
-                <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>經典健身訓練課表模板</h2>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>健身訓練課表庫 ({routines.length})</h2>
               </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleOpenCreateRoutine}
+              >
+                <Plus size={15} style={{ color: 'var(--neon-green)' }} />
+                <span>＋ 建立自訂專屬課表</span>
+              </button>
             </div>
 
             <div className="grid-cols-2 grid-responsive-2 gap-4">
-              {DEFAULT_ROUTINE_TEMPLATES.map(tmpl => (
+              {routines.map(tmpl => (
                 <div key={tmpl.id} className="glass-card glow-green flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between" style={{ marginBottom: '0.4rem' }}>
-                      <span className="badge badge-purple">{tmpl.category}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tmpl.exercises.length} 個動作</span>
+                      <div className="flex items-center gap-2">
+                        <span className="badge badge-purple">{tmpl.category}</span>
+                        {tmpl.isCustom && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>自訂</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tmpl.exercises.length} 個動作</span>
+                        {tmpl.isCustom && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-icon btn-sm"
+                            style={{ color: 'var(--neon-rose)', padding: '0.1rem' }}
+                            title="刪除此自訂課表"
+                            onClick={(e) => handleDeleteRoutine(e, tmpl.id)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>
@@ -623,8 +759,8 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
 
                     {/* Exercises Preview */}
                     <div className="flex flex-col gap-1" style={{ marginBottom: '1rem' }}>
-                      {tmpl.exercises.map(e => (
-                        <div key={e.exerciseId} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+                      {tmpl.exercises.map((e, eIdx) => (
+                        <div key={`${e.exerciseId}-${eIdx}`} style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
                           <span>• {e.exerciseName}</span>
                           <span>{e.targetSets} 組 x {e.targetReps} 次</span>
                         </div>
@@ -1025,6 +1161,182 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
           </div>
         );
       })()}
+
+      {/* ======================= CREATE ROUTINE MODAL ======================= */}
+      {isCreateRoutineOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="logo-accent" size={20} />
+                <h3 className="modal-title">建立自訂健身課表模板</h3>
+              </div>
+              <button type="button" className="btn btn-ghost btn-icon" onClick={() => setIsCreateRoutineOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustomRoutine}>
+              <div className="modal-body flex flex-col gap-4">
+                <div className="grid-cols-2 grid-responsive-2 gap-3">
+                  <div>
+                    <label className="label">課表名稱</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="例如: 週一・大胸與三頭突破"
+                      value={newRoutineTitle}
+                      onChange={e => setNewRoutineTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">分化分類標籤</label>
+                    <select
+                      className="select"
+                      value={newRoutineCategory}
+                      onChange={e => setNewRoutineCategory(e.target.value)}
+                    >
+                      <option value="推力專項">推力專項 (Push)</option>
+                      <option value="拉力專項">拉力專項 (Pull)</option>
+                      <option value="下肢專項">下肢專項 (Legs)</option>
+                      <option value="上半身力量">上半身力量 (Upper Body)</option>
+                      <option value="下半身力量">下半身力量 (Lower Body)</option>
+                      <option value="全身循環">全身循環 (Full Body)</option>
+                      <option value="核心有氧">核心有氧 (Core & Cardio)</option>
+                      <option value="自訂分化">自訂分化課表</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">課表說明與訓練要點 (選填)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="例如: 著重大重量槓鈴臥推，搭配滑輪頂峰收縮"
+                    value={newRoutineDesc}
+                    onChange={e => setNewRoutineDesc(e.target.value)}
+                  />
+                </div>
+
+                {/* Exercises in routine */}
+                <div style={{
+                  background: 'rgba(12, 19, 34, 0.6)',
+                  padding: '1rem',
+                  borderRadius: '0.75rem',
+                  border: '1px solid var(--border-color)',
+                }}>
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>課表動作清單 ({newRoutineExercises.length})</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>可從 133 個動作庫挑選</span>
+                  </div>
+
+                  {/* Add Exercise Row */}
+                  <div className="flex gap-2 items-center flex-wrap" style={{ marginBottom: '1rem' }}>
+                    <select
+                      className="select"
+                      style={{ flex: 1, minWidth: '220px' }}
+                      value={selectedExForRoutine}
+                      onChange={e => setSelectedExForRoutine(e.target.value)}
+                    >
+                      {allExercises.map(ex => (
+                        <option key={ex.id} value={ex.id}>
+                          {ex.name} ({CATEGORY_MAP[ex.category] || ex.category})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleAddExerciseToRoutineDraft}
+                    >
+                      <Plus size={15} />
+                      <span>加入動作</span>
+                    </button>
+                  </div>
+
+                  {/* Exercises list */}
+                  {newRoutineExercises.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '1.25rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                      尚未加入任何動作，請由上方選取動作並點擊「加入動作」。
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                      {newRoutineExercises.map((re, idx) => (
+                        <div
+                          key={`${re.exerciseId}-${idx}`}
+                          className="flex items-center justify-between"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            padding: '0.55rem 0.75rem',
+                            borderRadius: '0.5rem',
+                            border: '1px solid var(--border-color)',
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: '150px' }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{re.exerciseName}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                              {CATEGORY_MAP[re.category] || re.category}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                max="20"
+                                className="input"
+                                style={{ width: '55px', padding: '0.2rem 0.4rem', textAlign: 'center', fontSize: '0.85rem' }}
+                                value={re.targetSets}
+                                onChange={e => handleUpdateRoutineExerciseDraft(idx, 'targetSets', Number(e.target.value))}
+                              />
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>組</span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                className="input"
+                                style={{ width: '55px', padding: '0.2rem 0.4rem', textAlign: 'center', fontSize: '0.85rem' }}
+                                value={re.targetReps}
+                                onChange={e => handleUpdateRoutineExerciseDraft(idx, 'targetReps', Number(e.target.value))}
+                              />
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>次</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-icon btn-sm"
+                              style={{ color: 'var(--neon-rose)' }}
+                              onClick={() => handleRemoveExerciseFromRoutineDraft(idx)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setIsCreateRoutineOpen(false)}>
+                  取消
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <Check size={16} />
+                  <span>確認儲存課表模板</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

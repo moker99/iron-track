@@ -5,9 +5,15 @@ import type {
   MealEntry,
   PersonalRecord,
   UserProfile,
+  WorkoutRoutineTemplate,
   WorkoutSession,
 } from '../types';
-import { DEFAULT_EXERCISES, DEFAULT_FOOD_ITEMS, INITIAL_USER_PROFILES } from '../data/defaults';
+import {
+  DEFAULT_EXERCISES,
+  DEFAULT_FOOD_ITEMS,
+  DEFAULT_ROUTINE_TEMPLATES,
+  INITIAL_USER_PROFILES,
+} from '../data/defaults';
 import { calculate1RM } from '../utils/nutrition';
 
 const STORAGE_KEYS = {
@@ -17,6 +23,7 @@ const STORAGE_KEYS = {
   WORKOUT_SESSIONS: 'irontrack_workout_sessions',
   CUSTOM_EXERCISES: 'irontrack_custom_exercises',
   CUSTOM_FOODS: 'irontrack_custom_foods',
+  CUSTOM_ROUTINES: 'irontrack_custom_routines',
   CLOUD_CONFIG: 'irontrack_cloud_config',
 };
 
@@ -198,6 +205,39 @@ export class StorageService {
     }
   }
 
+  // ==================== 課表模板 (Workout Routine Templates) 管理 ====================
+  static getAllRoutines(): WorkoutRoutineTemplate[] {
+    try {
+      const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
+      const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
+      return [...DEFAULT_ROUTINE_TEMPLATES, ...customList];
+    } catch {
+      return DEFAULT_ROUTINE_TEMPLATES;
+    }
+  }
+
+  static addCustomRoutine(routine: WorkoutRoutineTemplate): void {
+    try {
+      const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
+      const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
+      customList.push(routine);
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(customList));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  static deleteCustomRoutine(id: string): void {
+    try {
+      const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
+      const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
+      const filtered = customList.filter(r => r.id !== id);
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(filtered));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   // ==================== 雲端設定 (Supabase Cloud Config) ====================
   static getCloudConfig(): CloudConfig {
     try {
@@ -221,6 +261,7 @@ export class StorageService {
       activeProfileId: this.getActiveProfileId(),
       mealLogs: this.getMealLogs(),
       workoutSessions: this.getWorkoutSessions(),
+      customRoutines: localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES)!) : [],
       customExercises: localStorage.getItem(STORAGE_KEYS.CUSTOM_EXERCISES) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_EXERCISES)!) : [],
       customFoods: localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS)!) : [],
     };
@@ -241,6 +282,9 @@ export class StorageService {
       }
       if (backup.workoutSessions && Array.isArray(backup.workoutSessions)) {
         localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(backup.workoutSessions));
+      }
+      if (backup.customRoutines) {
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(backup.customRoutines));
       }
       if (backup.customExercises) {
         localStorage.setItem(STORAGE_KEYS.CUSTOM_EXERCISES, JSON.stringify(backup.customExercises));
