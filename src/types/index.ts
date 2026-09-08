@@ -88,6 +88,7 @@ export interface FoodItem {
   carbs: number;    // g
   fat: number;      // g
   servingSize: string; // e.g. "100g", "1份", "1匙"
+  baseWeightGrams?: number; // 基底公克數 (例: 100 代表此份量為 100g，便於依克數秤重精確換算)
   category: FoodCategory;
   isCustom?: boolean;
 }
@@ -100,6 +101,8 @@ export interface MealEntry {
   foodName: string;
   servings: number;
   servingUnit: string;
+  weightGrams?: number; // 實際吃下的克數 (g)
+  inputMode?: 'grams' | 'servings';
   calories: number;
   protein: number;
   carbs: number;
