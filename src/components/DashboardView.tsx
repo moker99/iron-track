@@ -15,6 +15,8 @@ import { getUserNutritionTargets } from '../utils/nutrition';
 
 interface DashboardViewProps {
   activeProfile: UserProfile;
+  profiles?: UserProfile[];
+  onSelectProfile?: (id: string) => void;
   onNavigate: (tab: 'workout' | 'diet' | 'analytics') => void;
   onOpenProfileEdit: () => void;
   onStartRestTimer: (seconds: number) => void;
@@ -22,6 +24,8 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   activeProfile,
+  profiles = [],
+  onSelectProfile,
   onNavigate,
   onOpenProfileEdit,
   onStartRestTimer,
@@ -427,6 +431,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* ======================= ADMIN TEAM OVERVIEW (管理者戰情總表) ======================= */}
+      {activeProfile.role === 'admin' && profiles.length > 0 && (
+        <div className="glass-card glow-purple" style={{ border: '1px solid rgba(168, 85, 247, 0.4)', marginTop: '0.5rem' }}>
+          <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '1rem' }}>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '1.25rem' }}>👑</span>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>團隊成員即時看板 (Admin Team Pulse)</h2>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  您以管理員身分檢視，共 {profiles.length} 位成員之今日熱量攝取、訓練狀態與進度。
+                </p>
+              </div>
+            </div>
+            <span className="badge badge-purple">管理員特權模式</span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {profiles.map(member => {
+              const memberMeals = StorageService.getMealsByDate(member.id, todayStr);
+              const memberCals = Math.round(memberMeals.reduce((sum, m) => sum + m.calories, 0));
+              const memberTargets = getUserNutritionTargets(member);
+              const memberWorkouts = StorageService.getWorkoutSessions(member.id).filter(w => w.date === todayStr);
+              const memberWorkoutBurn = memberWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0);
+              const isCurrent = member.id === activeProfile.id;
+
+              return (
+                <div
+                  key={member.id}
+                  style={{
+                    background: isCurrent ? 'rgba(168, 85, 247, 0.12)' : 'rgba(12, 19, 34, 0.6)',
+                    border: `1px solid ${isCurrent ? 'var(--neon-purple)' : 'var(--border-color)'}`,
+                    borderRadius: '0.85rem',
+                    padding: '0.85rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem'
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span style={{ fontSize: '1.5rem' }}>{member.avatar}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{member.name}</span>
+                        {member.role === 'admin' ? (
+                          <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>Admin</span>
+                        ) : (
+                          <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>成員</span>
+                        )}
+                        {isCurrent && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>目前視角</span>}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                        目標: {member.goal === 'gain_muscle' ? '增肌強壯' : member.goal === 'lose_fat' ? '減脂瘦身' : '體態維持'} · 體重: {member.weightKg}kg
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* Diet status */}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>今日飲食熱量</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: memberCals > memberTargets.targetCalories ? 'var(--neon-rose)' : 'var(--neon-green)' }}>
+                        {memberCals} / {memberTargets.targetCalories} <span style={{ fontSize: '0.7rem' }}>kcal</span>
+                      </div>
+                    </div>
+
+                    {/* Workout status */}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>今日訓練</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: memberWorkouts.length > 0 ? 'var(--neon-cyan)' : 'var(--text-dim)' }}>
+                        {memberWorkouts.length > 0 ? `🏋️ 已練 (${memberWorkoutBurn}k)` : '🛌 尚未訓練'}
+                      </div>
+                    </div>
+
+                    {/* Action button */}
+                    {!isCurrent && onSelectProfile && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.8rem' }}
+                        onClick={() => onSelectProfile(member.id)}
+                      >
+                        切換檢視日誌
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

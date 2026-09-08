@@ -99,6 +99,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span style={{ fontSize: '0.875rem', fontWeight: 600, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {activeProfile.name}
                 </span>
+                {activeProfile.role === 'admin' && (
+                  <span className="badge badge-purple" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
+                    👑 Admin
+                  </span>
+                )}
                 <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
 
@@ -112,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     position: 'absolute',
                     top: '110%',
                     right: 0,
-                    width: '220px',
+                    width: '240px',
                     background: '#121a2b',
                     border: '1px solid var(--border-color)',
                     borderRadius: '0.75rem',
@@ -120,8 +125,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                     padding: '0.5rem',
                     zIndex: 50,
                   }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', padding: '0.25rem 0.5rem', fontWeight: 600 }}>
-                      切換使用者 ({profiles.length})
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', padding: '0.25rem 0.5rem', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>切換成員 ({profiles.length})</span>
+                      {activeProfile.role === 'admin' && <span style={{ color: 'var(--neon-purple)' }}>您是管理員</span>}
                     </div>
                     {profiles.map(p => (
                       <button
@@ -147,6 +153,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="flex items-center gap-2">
                           <span>{p.avatar}</span>
                           <span style={{ fontWeight: 600 }}>{p.name}</span>
+                          {p.role === 'admin' && (
+                            <span className="badge badge-purple" style={{ fontSize: '0.6rem', padding: '0.05rem 0.25rem' }}>
+                              Admin
+                            </span>
+                          )}
                         </div>
                         {p.id === activeProfile.id && <Check size={14} />}
                       </button>

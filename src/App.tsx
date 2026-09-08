@@ -98,6 +98,8 @@ export const App: React.FC = () => {
         {activeTab === 'dashboard' && (
           <DashboardView
             activeProfile={activeProfile}
+            profiles={profiles}
+            onSelectProfile={handleSelectProfile}
             onNavigate={setActiveTab}
             onOpenProfileEdit={() => handleOpenEditProfile(activeProfile)}
             onStartRestTimer={handleStartRestTimer}

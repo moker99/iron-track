@@ -1,6 +1,7 @@
 export type Gender = 'male' | 'female';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active';
 export type FitnessGoal = 'lose_fat' | 'maintain' | 'gain_muscle';
+export type UserRole = 'admin' | 'member';
 
 export interface UserProfile {
   id: string;
@@ -12,6 +13,7 @@ export interface UserProfile {
   weightKg: number;
   activityLevel: ActivityLevel;
   goal: FitnessGoal;
+  role?: UserRole;
   customCalories?: number;
   customProteinGrams?: number;
   customCarbsGrams?: number;

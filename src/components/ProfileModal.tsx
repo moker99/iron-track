@@ -31,6 +31,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [weightKg, setWeightKg] = useState<number>(profile?.weightKg || 70);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<FitnessGoal>(profile?.goal || 'maintain');
+  const [role, setRole] = useState<'admin' | 'member'>(profile?.role || 'member');
 
   const [useCustomMacros, setUseCustomMacros] = useState<boolean>(Boolean(profile?.customCalories));
   const [customCalories, setCustomCalories] = useState<number>(profile?.customCalories || 2400);
@@ -75,6 +76,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       weightKg: Number(weightKg),
       activityLevel,
       goal,
+      role,
       customCalories: useCustomMacros ? Number(customCalories) : autoTargetCals,
       customProteinGrams: useCustomMacros ? Number(customProtein) : recommendedMacros.proteinGrams,
       customCarbsGrams: useCustomMacros ? Number(customCarbs) : recommendedMacros.carbsGrams,
@@ -136,6 +138,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Role: Admin vs Member */}
+            <div style={{
+              background: 'rgba(18, 26, 43, 0.7)',
+              padding: '0.85rem',
+              borderRadius: '0.75rem',
+              border: '1px solid var(--border-color)',
+            }}>
+              <label className="label" style={{ marginBottom: '0.4rem' }}>成員權限角色</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${role === 'member' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ justifyContent: 'center' }}
+                  onClick={() => setRole('member')}
+                >
+                  🛡️ 一般成員 (Member)
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${role === 'admin' ? 'btn-purple' : 'btn-secondary'}`}
+                  style={{ justifyContent: 'center' }}
+                  onClick={() => setRole('admin')}
+                >
+                  👑 團隊管理者 (Admin)
+                </button>
+              </div>
+              <div style={{ fontSize: '0.73rem', color: 'var(--text-dim)', marginTop: '0.35rem' }}>
+                {role === 'admin'
+                  ? '👑 管理員特權：可在首頁查看 5 人全體團隊看板，並隨時切換查閱每位成員之飲食日誌與運動記錄'
+                  : '🛡️ 一般成員：專注於記錄與查看自己個人的訓練課表與三大營養素目標'}
               </div>
             </div>
 
