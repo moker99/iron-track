@@ -42,6 +42,15 @@ const CATEGORY_MAP: Record<ExerciseCategory | 'all', string> = {
   cardio: '有氧 (Cardio)',
 };
 
+const EQUIPMENT_MAP: Record<EquipmentType | string, string> = {
+  barbell: '槓鈴',
+  dumbbell: '啞鈴',
+  machine: '機械式',
+  cable: '滑輪繩索',
+  bodyweight: '自重徒手',
+  other: '其他/功能性',
+};
+
 export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
   activeProfile,
   onStartRestTimer,
@@ -336,11 +345,28 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     }
   };
 
+  // 各分類動作數量統計
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: allExercises.length };
+    allExercises.forEach(ex => {
+      counts[ex.category] = (counts[ex.category] || 0) + 1;
+    });
+    return counts;
+  }, [allExercises]);
+
   const filteredExercises = useMemo(() => {
+    const q = exerciseSearch.trim().toLowerCase();
     return allExercises.filter(ex => {
-      const matchSearch = ex.name.toLowerCase().includes(exerciseSearch.toLowerCase());
       const matchCat = selectedCat === 'all' || ex.category === selectedCat;
-      return matchSearch && matchCat;
+      if (!matchCat) return false;
+      if (!q) return true;
+      const equipZh = EQUIPMENT_MAP[ex.equipment] || '';
+      return (
+        ex.name.toLowerCase().includes(q) ||
+        ex.primaryMuscle.toLowerCase().includes(q) ||
+        ex.equipment.toLowerCase().includes(q) ||
+        equipZh.toLowerCase().includes(q)
+      );
     });
   }, [allExercises, exerciseSearch, selectedCat]);
 
@@ -715,7 +741,7 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   <input
                     type="text"
                     className="input"
-                    placeholder="搜尋動作，例如: 臥推、深蹲、引體向上..."
+                    placeholder="搜尋動作，例如: 臥推、深蹲、槓鈴、啞鈴、二頭..."
                     style={{ paddingLeft: '2.2rem' }}
                     value={exerciseSearch}
                     onChange={e => setExerciseSearch(e.target.value)}
@@ -731,42 +757,66 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                       style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
                       onClick={() => setSelectedCat(cat)}
                     >
-                      {CATEGORY_MAP[cat]}
+                      {CATEGORY_MAP[cat]} ({categoryCounts[cat] || 0})
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Exercise List */}
-              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                {filteredExercises.map(ex => (
-                  <div
-                    key={ex.id}
-                    style={{
-                      padding: '0.65rem 0.85rem',
-                      borderRadius: '0.65rem',
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid var(--border-color)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleAddExerciseToSession(ex)}
+              {/* Search Results Count */}
+              <div className="flex items-center justify-between" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <span>找到 <strong>{filteredExercises.length}</strong> 個動作</span>
+                {exerciseSearch && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.1rem 0.4rem', color: 'var(--neon-cyan)' }}
+                    onClick={() => setExerciseSearch('')}
                   >
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{ex.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                        主要肌群: {ex.primaryMuscle} · 器材: {ex.equipment}
-                      </div>
-                    </div>
+                    清除搜尋
+                  </button>
+                )}
+              </div>
 
-                    <button className="btn btn-secondary btn-sm">
-                      <Plus size={14} />
-                      <span>加入</span>
-                    </button>
+              {/* Exercise List */}
+              <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                {filteredExercises.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    找不到符合「{exerciseSearch}」的動作
                   </div>
-                ))}
+                ) : (
+                  filteredExercises.map(ex => (
+                    <div
+                      key={ex.id}
+                      style={{
+                        padding: '0.7rem 0.85rem',
+                        borderRadius: '0.65rem',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s, background 0.15s'
+                      }}
+                      onClick={() => handleAddExerciseToSession(ex)}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>{ex.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span className="badge badge-cyan" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
+                            {EQUIPMENT_MAP[ex.equipment] || ex.equipment}
+                          </span>
+                          <span>主要肌群: <strong style={{ color: 'var(--text-muted)' }}>{ex.primaryMuscle}</strong></span>
+                        </div>
+                      </div>
+
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
+                        <Plus size={14} />
+                        <span>加入</span>
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Custom Exercise Link */}
