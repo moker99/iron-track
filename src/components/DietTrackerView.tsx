@@ -116,6 +116,12 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     if (activeProfile.tanBaselineFatRatio !== undefined) setTanBaselineFat(activeProfile.tanBaselineFatRatio);
   }, [activeProfile]);
 
+  // 當使用者 Profile 或選擇日期變更時，即時更新當日飲食紀錄與食物庫
+  useEffect(() => {
+    setMealLogs(StorageService.getMealsByDate(activeProfile.id, selectedDate));
+    setAllFoods(StorageService.getAllFoods());
+  }, [activeProfile.id, selectedDate]);
+
   const handleProtocolChange = (newProtocol: DietProtocol) => {
     let newGoal = activeProfile.goal;
     // 若切換到減脂方案，但先前目標為增肌，貼心同步為減脂；若切換到譚成義且先前為減脂，貼心同步為增肌
@@ -315,27 +321,37 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     StorageService.addCustomFood(newFood);
     setAllFoods(StorageService.getAllFoods());
 
-    // 同步新增到今日餐點 (根據本次吃下克數)
-    const factor = customIntakeGrams / baseGrams;
-    const entry: MealEntry = {
-      id: `meal-${Date.now()}`,
-      userId: activeProfile.id,
-      date: selectedDate,
-      mealType: targetMealType,
-      foodName: newFood.name,
-      servings: Math.round(factor * 100) / 100,
-      servingUnit: `${customIntakeGrams}g`,
-      weightGrams: Number(customIntakeGrams),
-      inputMode: 'grams',
-      calories: Math.round(newFood.calories * factor),
-      protein: Math.round(newFood.protein * factor * 10) / 10,
-      carbs: Math.round(newFood.carbs * factor * 10) / 10,
-      fat: Math.round(newFood.fat * factor * 10) / 10,
-      createdAt: new Date().toISOString(),
-    };
+    // 同步新增到今日餐點 (當本次吃下克數大於 0 時才寫入今日餐點)
+    if (customIntakeGrams > 0) {
+      const factor = customIntakeGrams / baseGrams;
+      const entry: MealEntry = {
+        id: `meal-${Date.now()}`,
+        userId: activeProfile.id,
+        date: selectedDate,
+        mealType: targetMealType,
+        foodName: newFood.name,
+        servings: Math.round(factor * 100) / 100,
+        servingUnit: `${customIntakeGrams}g`,
+        weightGrams: Number(customIntakeGrams),
+        inputMode: 'grams',
+        calories: Math.round(newFood.calories * factor),
+        protein: Math.round(newFood.protein * factor * 10) / 10,
+        carbs: Math.round(newFood.carbs * factor * 10) / 10,
+        fat: Math.round(newFood.fat * factor * 10) / 10,
+        createdAt: new Date().toISOString(),
+      };
 
-    StorageService.addMealEntry(entry);
-    refreshMealLogs(selectedDate);
+      StorageService.addMealEntry(entry);
+      refreshMealLogs(selectedDate);
+    }
+
+    // 重設自訂食物表單輸入項
+    setCustomName('');
+    setCustomCalories(0);
+    setCustomProtein(0);
+    setCustomCarbs(0);
+    setCustomFat(0);
+    setCustomIntakeGrams(0);
     setIsAddModalOpen(false);
   };
 

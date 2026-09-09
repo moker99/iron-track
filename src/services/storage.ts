@@ -68,13 +68,28 @@ export class StorageService {
         return INITIAL_USER_PROFILES;
       }
       const parsed: UserProfile[] = JSON.parse(data);
+      // 自動將舊的 user-shawn-admin 統一遷移至 user-shawn
+      let modified = false;
+      const normalized = parsed.map(p => {
+        if (p.id === 'user-shawn-admin') {
+          modified = true;
+          return { ...p, id: 'user-shawn' };
+        }
+        return p;
+      });
       // 若本機殘留過去的舊測試資料 (user-default-2 等)，自動重設為只有 Shawn 的全新狀態
-      if (parsed.some(p => p.id === 'user-default-2' || p.id === 'user-default-1')) {
+      if (normalized.some(p => p.id === 'user-default-2' || p.id === 'user-default-1')) {
         localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_USER_PROFILES));
-        this.setActiveProfileId('user-shawn-admin');
+        this.setActiveProfileId('user-shawn');
         return INITIAL_USER_PROFILES;
       }
-      return parsed;
+      if (modified) {
+        localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(normalized));
+        if (localStorage.getItem(STORAGE_KEYS.ACTIVE_PROFILE_ID) === 'user-shawn-admin') {
+          this.setActiveProfileId('user-shawn');
+        }
+      }
+      return normalized;
     } catch {
       return INITIAL_USER_PROFILES;
     }
@@ -82,17 +97,30 @@ export class StorageService {
 
   static getActiveProfileId(): string {
     const authId = this.getAuthenticatedProfileId();
-    if (authId) return authId;
+    if (authId) {
+      if (authId === 'user-shawn-admin') {
+        this.setAuthenticatedProfileId('user-shawn');
+        return 'user-shawn';
+      }
+      return authId;
+    }
     const id = localStorage.getItem(STORAGE_KEYS.ACTIVE_PROFILE_ID);
-    if (id) return id;
+    if (id) {
+      if (id === 'user-shawn-admin') {
+        this.setActiveProfileId('user-shawn');
+        return 'user-shawn';
+      }
+      return id;
+    }
     const profiles = this.getProfiles();
-    const defaultId = profiles[0]?.id || 'user-shawn-admin';
+    const defaultId = profiles[0]?.id || 'user-shawn';
     localStorage.setItem(STORAGE_KEYS.ACTIVE_PROFILE_ID, defaultId);
     return defaultId;
   }
 
   static setActiveProfileId(id: string): void {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_PROFILE_ID, id);
+    const normalized = id === 'user-shawn-admin' ? 'user-shawn' : id;
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PROFILE_ID, normalized);
   }
 
   static getActiveProfile(): UserProfile {
@@ -102,51 +130,73 @@ export class StorageService {
   }
 
   static saveProfile(profile: UserProfile): void {
+    const normalizedProfile: UserProfile = {
+      ...profile,
+      id: profile.id === 'user-shawn-admin' ? 'user-shawn' : profile.id,
+    };
     const profiles = this.getProfiles();
-    const index = profiles.findIndex(p => p.id === profile.id);
+    const index = profiles.findIndex(p => p.id === normalizedProfile.id);
     if (index >= 0) {
-      profiles[index] = profile;
+      profiles[index] = normalizedProfile;
     } else {
-      profiles.push(profile);
+      profiles.push(normalizedProfile);
     }
     localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
     // 雲端即時同步
-    SupabaseSyncService.pushProfile(profile);
+    SupabaseSyncService.pushProfile(normalizedProfile);
   }
 
   static deleteProfile(profileId: string): void {
-    const profiles = this.getProfiles().filter(p => p.id !== profileId);
+    const normalizedId = profileId === 'user-shawn-admin' ? 'user-shawn' : profileId;
+    const profiles = this.getProfiles().filter(p => p.id !== normalizedId);
     if (profiles.length === 0) return; // 保留至少一個
     localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
-    if (this.getActiveProfileId() === profileId) {
+    if (this.getActiveProfileId() === normalizedId) {
       this.setActiveProfileId(profiles[0].id);
     }
     // 雲端即時同步
-    SupabaseSyncService.deleteProfile(profileId);
+    SupabaseSyncService.deleteProfile(normalizedId);
   }
 
   // ==================== 飲食記錄 (Meal Logs) 管理 ====================
   static getMealLogs(userId?: string): MealEntry[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.MEAL_LOGS);
-      const all: MealEntry[] = data ? JSON.parse(data) : [];
+      let all: MealEntry[] = data ? JSON.parse(data) : [];
+      let modified = false;
+      all = all.map(m => {
+        if (m.userId === 'user-shawn-admin') {
+          modified = true;
+          return { ...m, userId: 'user-shawn' };
+        }
+        return m;
+      });
+      if (modified) {
+        localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+      }
       if (!userId) return all;
-      return all.filter(m => m.userId === userId);
+      const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+      return all.filter(m => m.userId === targetUserId);
     } catch {
       return [];
     }
   }
 
   static getMealsByDate(userId: string, date: string): MealEntry[] {
-    return this.getMealLogs(userId).filter(m => m.date === date);
+    const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+    return this.getMealLogs(targetUserId).filter(m => m.date === date);
   }
 
   static addMealEntry(entry: MealEntry): void {
+    const normalizedEntry: MealEntry = {
+      ...entry,
+      userId: entry.userId === 'user-shawn-admin' ? 'user-shawn' : entry.userId,
+    };
     const all = this.getMealLogs();
-    all.unshift(entry);
+    all.unshift(normalizedEntry);
     localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
     // 雲端即時同步
-    SupabaseSyncService.pushMealEntry(entry);
+    SupabaseSyncService.pushMealEntry(normalizedEntry);
   }
 
   static deleteMealEntry(id: string): void {
@@ -160,20 +210,36 @@ export class StorageService {
   static getWorkoutSessions(userId?: string): WorkoutSession[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.WORKOUT_SESSIONS);
-      const all: WorkoutSession[] = data ? JSON.parse(data) : [];
+      let all: WorkoutSession[] = data ? JSON.parse(data) : [];
+      let modified = false;
+      all = all.map(s => {
+        if (s.userId === 'user-shawn-admin') {
+          modified = true;
+          return { ...s, userId: 'user-shawn' };
+        }
+        return s;
+      });
+      if (modified) {
+        localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(all));
+      }
       if (!userId) return all;
-      return all.filter(s => s.userId === userId);
+      const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+      return all.filter(s => s.userId === targetUserId);
     } catch {
       return [];
     }
   }
 
   static addWorkoutSession(session: WorkoutSession): void {
+    const normalized: WorkoutSession = {
+      ...session,
+      userId: session.userId === 'user-shawn-admin' ? 'user-shawn' : session.userId,
+    };
     const all = this.getWorkoutSessions();
-    all.unshift(session);
+    all.unshift(normalized);
     localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(all));
     // 雲端即時同步
-    SupabaseSyncService.pushWorkoutSession(session);
+    SupabaseSyncService.pushWorkoutSession(normalized);
   }
 
   static deleteWorkoutSession(id: string): void {

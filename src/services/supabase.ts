@@ -155,22 +155,58 @@ export class SupabaseSyncService {
           const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
           const profileMap = new Map<string, UserProfile>();
 
-          // 本地優先載入
-          localProfiles.forEach(p => profileMap.set(p.id, p));
+          // 本地優先載入（先處理舊 ID 遷移）
+          localProfiles.forEach(p => {
+            const normalizedId = p.id === 'user-shawn-admin' ? 'user-shawn' : p.id;
+            profileMap.set(normalizedId, { ...p, id: normalizedId });
+          });
 
-          // 雲端資料合併（若雲端為預設值，保留本機設定）
+          // 雲端資料合併（安全非破壞性合併，絕對不以雲端的 null/預設值抹除本地自訂的設定）
           mappedProfiles.forEach(cp => {
-            const lp = profileMap.get(cp.id);
-            profileMap.set(cp.id, {
+            const targetId = cp.id === 'user-shawn-admin' ? 'user-shawn' : cp.id;
+            const lp = profileMap.get(targetId);
+            if (!lp) {
+              profileMap.set(targetId, { ...cp, id: targetId });
+              return;
+            }
+            profileMap.set(targetId, {
               ...lp,
-              ...cp,
-              dietProtocol: cp.dietProtocol !== 'standard' ? cp.dietProtocol : (lp?.dietProtocol || cp.dietProtocol),
-              weeklyTrainingHours: cp.weeklyTrainingHours || lp?.weeklyTrainingHours || '4-5',
+              id: targetId,
+              name: cp.name || lp.name,
+              avatar: cp.avatar || lp.avatar,
+              gender: cp.gender || lp.gender,
+              age: cp.age || lp.age,
+              heightCm: cp.heightCm || lp.heightCm,
+              weightKg: cp.weightKg || lp.weightKg,
+              activityLevel: cp.activityLevel || lp.activityLevel,
+              goal: cp.goal || lp.goal,
+              role: cp.role || lp.role,
+              password: lp.password || cp.password,
+              pinCode: lp.password || lp.pinCode || cp.pinCode,
+              dietProtocol: (cp.dietProtocol && cp.dietProtocol !== 'standard') ? cp.dietProtocol : (lp.dietProtocol || cp.dietProtocol),
+              carbCyclingPhase: cp.carbCyclingPhase || lp.carbCyclingPhase,
+              weeklyTrainingHours: cp.weeklyTrainingHours || lp.weeklyTrainingHours,
+              sprintStartDate: cp.sprintStartDate || lp.sprintStartDate,
+              sprintManualDay: cp.sprintManualDay || lp.sprintManualDay,
+              threeMonthsStartDate: cp.threeMonthsStartDate || lp.threeMonthsStartDate,
+              threeMonthsManualWeek: cp.threeMonthsManualWeek || lp.threeMonthsManualWeek,
+              tanBaselineCarbRatio: lp.tanBaselineCarbRatio,
+              tanBaselineProteinRatio: lp.tanBaselineProteinRatio,
+              tanBaselineFatRatio: lp.tanBaselineFatRatio,
+              customCalories: cp.customCalories !== undefined ? cp.customCalories : lp.customCalories,
+              customProteinGrams: cp.customProteinGrams !== undefined ? cp.customProteinGrams : lp.customProteinGrams,
+              customCarbsGrams: cp.customCarbsGrams !== undefined ? cp.customCarbsGrams : lp.customCarbsGrams,
+              customFatGrams: cp.customFatGrams !== undefined ? cp.customFatGrams : lp.customFatGrams,
+              targetWeightKg: cp.targetWeightKg !== undefined ? cp.targetWeightKg : lp.targetWeightKg,
             });
+            // 清除過期的 user-shawn-admin
+            if (targetId === 'user-shawn') {
+              profileMap.delete('user-shawn-admin');
+            }
           });
 
           // 若本地有雲端尚未擁有的 Profile，背景自動補推
-          const missingProfiles = localProfiles.filter(lp => !mappedProfiles.some(cp => cp.id === lp.id));
+          const missingProfiles = Array.from(profileMap.values()).filter(lp => !mappedProfiles.some(cp => cp.id === lp.id));
           for (const mp of missingProfiles) {
             this.pushProfile(mp).catch(() => {});
           }
@@ -316,6 +352,12 @@ export class SupabaseSyncService {
         localExercises.forEach(e => exMap.set(e.id, e));
         mappedExercises.forEach(e => exMap.set(e.id, e));
 
+        // 若本地有自訂動作尚未存在於雲端，背景補推至雲端
+        const missingExercises = localExercises.filter(le => !mappedExercises.some(ce => ce.id === le.id));
+        for (const missing of missingExercises) {
+          this.pushCustomExercise(missing, 'user-shawn').catch(() => {});
+        }
+
         localStorage.setItem(STORAGE_KEYS.CUSTOM_EXERCISES, JSON.stringify(Array.from(exMap.values())));
       }
 
@@ -345,6 +387,12 @@ export class SupabaseSyncService {
         localFoods.forEach(f => foodMap.set(f.id, f));
         mappedFoods.forEach(f => foodMap.set(f.id, f));
 
+        // 若本地有自訂食物尚未存在於雲端，背景補推至雲端
+        const missingFoods = localFoods.filter(lf => !mappedFoods.some(cf => cf.id === lf.id));
+        for (const missing of missingFoods) {
+          this.pushCustomFood(missing, 'user-shawn').catch(() => {});
+        }
+
         localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(Array.from(foodMap.values())));
       }
 
@@ -359,7 +407,7 @@ export class SupabaseSyncService {
   private static async seedInitialProfiles(client: SupabaseClient): Promise<void> {
     try {
       const rows = INITIAL_USER_PROFILES.map(p => ({
-        id: p.id,
+        id: p.id === 'user-shawn-admin' ? 'user-shawn' : p.id,
         name: p.name,
         avatar: p.avatar,
         gender: p.gender,
@@ -369,7 +417,6 @@ export class SupabaseSyncService {
         activity_level: p.activityLevel,
         goal: p.goal,
         role: p.role || 'member',
-        pin_code: p.pinCode || (p.role === 'admin' ? '8888' : '1234'),
         custom_calories: p.customCalories || null,
         custom_protein_grams: p.customProteinGrams || null,
         custom_carbs_grams: p.customCarbsGrams || null,
@@ -387,9 +434,11 @@ export class SupabaseSyncService {
   static async pushProfile(profile: UserProfile): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetId = profile.id === 'user-shawn-admin' ? 'user-shawn' : profile.id;
     try {
+      // 階段 1：嘗試完整 payload (含飲食協議與密碼等新欄位)
       const fullPayload: Record<string, any> = {
-        id: profile.id,
+        id: targetId,
         name: profile.name,
         avatar: profile.avatar,
         gender: profile.gender,
@@ -414,39 +463,64 @@ export class SupabaseSyncService {
         target_weight_kg: profile.targetWeightKg || null,
       };
 
-      const { error } = await client.from('profiles').upsert(fullPayload);
-      if (error) {
-        // 若雲端資料表尚未建立新欄位，自動降級儲存核心欄位，避免阻斷操作
-        const fallbackPayload = {
-          id: profile.id,
-          name: profile.name,
-          avatar: profile.avatar,
-          gender: profile.gender,
-          age: profile.age,
-          height_cm: profile.heightCm,
-          weight_kg: profile.weightKg,
-          activity_level: profile.activityLevel,
-          goal: profile.goal,
-          role: profile.role || 'member',
-          pin_code: profile.password || profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
-          custom_calories: profile.customCalories || null,
-          custom_protein_grams: profile.customProteinGrams || null,
-          custom_carbs_grams: profile.customCarbsGrams || null,
-          custom_fat_grams: profile.customFatGrams || null,
-          target_weight_kg: profile.targetWeightKg || null,
-        };
-        await client.from('profiles').upsert(fallbackPayload);
+      const { error: fullErr } = await client.from('profiles').upsert(fullPayload);
+      if (!fullErr) return;
+
+      // 階段 2：若雲端尚未升級飲食欄位，降級嘗試只含 pin_code 的核心表
+      const coreWithPin: Record<string, any> = {
+        id: targetId,
+        name: profile.name,
+        avatar: profile.avatar,
+        gender: profile.gender,
+        age: profile.age,
+        height_cm: profile.heightCm,
+        weight_kg: profile.weightKg,
+        activity_level: profile.activityLevel,
+        goal: profile.goal,
+        role: profile.role || 'member',
+        pin_code: profile.password || profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
+        custom_calories: profile.customCalories || null,
+        custom_protein_grams: profile.customProteinGrams || null,
+        custom_carbs_grams: profile.customCarbsGrams || null,
+        custom_fat_grams: profile.customFatGrams || null,
+        target_weight_kg: profile.targetWeightKg || null,
+      };
+      const { error: pinErr } = await client.from('profiles').upsert(coreWithPin);
+      if (!pinErr) return;
+
+      // 階段 3：保證 100% 寫入成功的原生基礎欄位（不含 pin_code，確保身高、體重、年齡、熱量三大元素永遠精準保存）
+      const basePayload: Record<string, any> = {
+        id: targetId,
+        name: profile.name,
+        avatar: profile.avatar,
+        gender: profile.gender,
+        age: profile.age,
+        height_cm: profile.heightCm,
+        weight_kg: profile.weightKg,
+        activity_level: profile.activityLevel,
+        goal: profile.goal,
+        role: profile.role || 'member',
+        custom_calories: profile.customCalories || null,
+        custom_protein_grams: profile.customProteinGrams || null,
+        custom_carbs_grams: profile.customCarbsGrams || null,
+        custom_fat_grams: profile.customFatGrams || null,
+        target_weight_kg: profile.targetWeightKg || null,
+      };
+      const { error: baseErr } = await client.from('profiles').upsert(basePayload);
+      if (baseErr) {
+        console.error('pushProfile to Supabase failed:', baseErr);
       }
     } catch (e) {
-      console.error('pushProfile to Supabase failed:', e);
+      console.error('pushProfile to Supabase exception:', e);
     }
   }
 
   static async deleteProfile(profileId: string): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetId = profileId === 'user-shawn-admin' ? 'user-shawn' : profileId;
     try {
-      await client.from('profiles').delete().eq('id', profileId);
+      await client.from('profiles').delete().eq('id', targetId);
     } catch (e) {
       console.error('deleteProfile from Supabase failed:', e);
     }
@@ -455,10 +529,11 @@ export class SupabaseSyncService {
   static async pushMealEntry(entry: MealEntry): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetUserId = entry.userId === 'user-shawn-admin' ? 'user-shawn' : entry.userId;
     try {
       await client.from('meal_entries').upsert({
         id: entry.id,
-        user_id: entry.userId,
+        user_id: targetUserId,
         date: entry.date,
         meal_type: entry.mealType,
         food_name: entry.foodName,
@@ -489,10 +564,11 @@ export class SupabaseSyncService {
   static async pushWorkoutSession(session: WorkoutSession): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetUserId = session.userId === 'user-shawn-admin' ? 'user-shawn' : session.userId;
     try {
       await client.from('workout_sessions').upsert({
         id: session.id,
-        user_id: session.userId,
+        user_id: targetUserId,
         date: session.date,
         start_time: session.startTime,
         end_time: session.endTime || null,
@@ -522,19 +598,20 @@ export class SupabaseSyncService {
   static async pushRoutineTemplate(routine: WorkoutRoutineTemplate): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetUserId = routine.userId === 'user-shawn-admin' ? 'user-shawn' : routine.userId;
     try {
       // 確保關聯的 user profile 存在於雲端 (避免 23503 foreign key error)
-      if (routine.userId) {
+      if (targetUserId) {
         const { data: profileCheck } = await client
           .from('profiles')
           .select('id')
-          .eq('id', routine.userId)
+          .eq('id', targetUserId)
           .maybeSingle();
 
         if (!profileCheck) {
           const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
           const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
-          const targetP = localProfiles.find(p => p.id === routine.userId);
+          const targetP = localProfiles.find(p => p.id === targetUserId || (targetUserId === 'user-shawn' && p.id === 'user-shawn-admin'));
           if (targetP) {
             await this.pushProfile(targetP);
           }
@@ -543,7 +620,7 @@ export class SupabaseSyncService {
 
       const { error } = await client.from('routine_templates').upsert({
         id: routine.id,
-        user_id: routine.userId || null,
+        user_id: targetUserId || null,
         author_name: routine.authorName || null,
         title: routine.title,
         category: routine.category,
@@ -574,6 +651,7 @@ export class SupabaseSyncService {
   static async pushCustomExercise(exercise: Exercise, userId?: string): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
     try {
       await client.from('custom_exercises').upsert({
         id: exercise.id,
@@ -583,7 +661,7 @@ export class SupabaseSyncService {
         primary_muscle: exercise.primaryMuscle,
         notes: exercise.notes || null,
         is_custom: true,
-        created_by: userId || null,
+        created_by: targetUserId || null,
       });
     } catch (e) {
       console.error('pushCustomExercise to Supabase failed:', e);
@@ -593,6 +671,7 @@ export class SupabaseSyncService {
   static async pushCustomFood(food: FoodItem, userId?: string): Promise<void> {
     const client = getSupabaseClient();
     if (!client) return;
+    const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
     try {
       await client.from('custom_foods').upsert({
         id: food.id,
@@ -605,7 +684,7 @@ export class SupabaseSyncService {
         base_weight_grams: food.baseWeightGrams || 100,
         category: food.category || 'other',
         is_custom: true,
-        created_by: userId || null,
+        created_by: targetUserId || null,
       });
     } catch (e) {
       console.error('pushCustomFood to Supabase failed:', e);

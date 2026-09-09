@@ -98,6 +98,13 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
   const [customExCat, setCustomExCat] = useState<ExerciseCategory>('chest');
   const [customExEquip, setCustomExEquip] = useState<EquipmentType>('barbell');
 
+  // 當切換成員或雲端同步後，即時刷新訓練日誌、動作庫與自訂課表
+  useEffect(() => {
+    setSessions(StorageService.getWorkoutSessions(activeProfile.id));
+    setAllExercises(StorageService.getAllExercises());
+    setRoutines(StorageService.getAllRoutines());
+  }, [activeProfile.id]);
+
   // Workout stopwatch
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;

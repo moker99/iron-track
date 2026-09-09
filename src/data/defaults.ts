@@ -247,7 +247,7 @@ export const DEFAULT_FOOD_ITEMS: FoodItem[] = [
 
 export const INITIAL_USER_PROFILES: UserProfile[] = [
   {
-    id: 'user-shawn-admin',
+    id: 'user-shawn',
     name: 'Shawn (隊長/管理員)',
     avatar: '🏋️‍♂️',
     gender: 'male',
