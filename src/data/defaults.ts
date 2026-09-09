@@ -121,6 +121,8 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'ex-machine-shoulder-press', name: '機械坐姿肩推 (Machine Shoulder Press)', category: 'shoulders', equipment: 'machine', primaryMuscle: '前中三角肌無代償大重量' },
   { id: 'ex-smith-shoulder-press', name: '史密斯坐姿肩推 (Smith Shoulder Press)', category: 'shoulders', equipment: 'machine', primaryMuscle: '前三角肌穩定超負荷' },
   { id: 'ex-lateral-raise', name: '站姿啞鈴側平舉 (DB Lateral Raise)', category: 'shoulders', equipment: 'dumbbell', primaryMuscle: '中三角肌打造南瓜肩' },
+  { id: 'ex-lateral-raise-pronated', name: '啞鈴正手側平舉 (Pronated Lateral Raise - 掌心朝下)', category: 'shoulders', equipment: 'dumbbell', primaryMuscle: '中三角肌 / 拇指壓低手腕旋前，加強中束頂峰收縮' },
+  { id: 'ex-lateral-raise-supinated', name: '啞鈴反手側平舉 (Supinated Lateral Raise - 掌心朝上)', category: 'shoulders', equipment: 'dumbbell', primaryMuscle: '中三角肌前束 / 手腕旋後可增加肩前束參與，改善圓肩' },
   { id: 'ex-seated-lateral-raise', name: '坐姿啞鈴側平舉 (Seated DB Lateral Raise)', category: 'shoulders', equipment: 'dumbbell', primaryMuscle: '中三角肌嚴格孤立 (阻斷身體晃動)' },
   { id: 'ex-cable-lateral-raise', name: '滑輪單臂側平舉 (Cable Lateral Raise)', category: 'shoulders', equipment: 'cable', primaryMuscle: '中三角肌全程恆定張力' },
   { id: 'ex-leaning-cable-lateral', name: '滑輪身體傾斜側平舉 (Leaning Cable Raise)', category: 'shoulders', equipment: 'cable', primaryMuscle: '中三角肌底部最大力矩拉伸' },
