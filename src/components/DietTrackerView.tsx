@@ -13,10 +13,11 @@ import {
   Zap,
   AlertTriangle,
   BookOpen,
+  Clock,
 } from 'lucide-react';
-import type { CarbCyclingPhase, FoodCategory, FoodItem, MealEntry, MealType, UserProfile } from '../types';
+import type { CarbCyclingPhase, FoodCategory, FoodItem, MealEntry, MealType, UserProfile, WeeklyTrainingHours } from '../types';
 import { StorageService } from '../services/storage';
-import { getUserNutritionTargets, TAN_KNOWLEDGE } from '../utils/nutrition';
+import { getUserNutritionTargets, TAN_KNOWLEDGE, THREE_MONTHS_TABLE, THREE_MONTHS_RULES } from '../utils/nutrition';
 
 interface DietTrackerViewProps {
   activeProfile: UserProfile;
@@ -92,14 +93,15 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   // 飲食計劃模式與當前進程狀態
   const [currentPhase, setCurrentPhase] = useState<CarbCyclingPhase>(activeProfile.carbCyclingPhase || 'baseline');
   const [currentSprintDay, setCurrentSprintDay] = useState<number>(activeProfile.sprintManualDay || 1);
-  const [currentThreeMonthsWeek, setCurrentThreeMonthsWeek] = useState<number>(activeProfile.threeMonthsManualWeek || 1);
+  const [currentTrainingHours, setCurrentTrainingHours] = useState<WeeklyTrainingHours>(activeProfile.weeklyTrainingHours || '4-5');
   const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
   const [isSprintTableModalOpen, setIsSprintTableModalOpen] = useState<boolean>(false);
+  const [isThreeMonthsModalOpen, setIsThreeMonthsModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (activeProfile.carbCyclingPhase) setCurrentPhase(activeProfile.carbCyclingPhase);
     if (activeProfile.sprintManualDay) setCurrentSprintDay(activeProfile.sprintManualDay);
-    if (activeProfile.threeMonthsManualWeek) setCurrentThreeMonthsWeek(activeProfile.threeMonthsManualWeek);
+    if (activeProfile.weeklyTrainingHours) setCurrentTrainingHours(activeProfile.weeklyTrainingHours);
   }, [activeProfile]);
 
   const handlePhaseChange = (newPhase: CarbCyclingPhase) => {
@@ -113,10 +115,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     StorageService.saveProfile({ ...activeProfile, sprintManualDay: next });
   };
 
-  const handleThreeMonthsWeekChange = (delta: number) => {
-    const next = Math.min(12, Math.max(1, currentThreeMonthsWeek + delta));
-    setCurrentThreeMonthsWeek(next);
-    StorageService.saveProfile({ ...activeProfile, threeMonthsManualWeek: next });
+  const handleTrainingHoursChange = (hours: WeeklyTrainingHours) => {
+    setCurrentTrainingHours(hours);
+    StorageService.saveProfile({ ...activeProfile, weeklyTrainingHours: hours });
   };
 
   // 當日訓練消耗
@@ -134,9 +135,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
       currentDate: selectedDate,
       overridePhase: currentPhase,
       overrideSprintDay: currentSprintDay,
-      overrideThreeMonthsWeek: currentThreeMonthsWeek,
+      overrideWeeklyTrainingHours: currentTrainingHours,
     });
-  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentThreeMonthsWeek]);
+  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentTrainingHours]);
 
   // 當日總攝取統計
   const totals = useMemo(() => {
@@ -528,56 +529,62 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
         </div>
       )}
 
-      {/* 方案 C: 三個月動態減脂方案 */}
+      {/* 方案 C: 三個月動態減脂方案 (以每週運動時數計算) */}
       {targets.protocol === 'dynamic_3months' && targets.threeMonthsInfo && (
         <div className="glass-card" style={{
-          background: targets.threeMonthsInfo.isDietBreakWeek ? 'rgba(168, 85, 247, 0.12)' : 'rgba(18, 26, 43, 0.85)',
-          border: `1px solid ${targets.threeMonthsInfo.isDietBreakWeek ? 'var(--neon-purple)' : 'rgba(168, 85, 247, 0.3)'}`,
+          background: 'rgba(168, 85, 247, 0.08)',
+          border: '1px solid rgba(168, 85, 247, 0.35)',
         }}>
           <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
             <div className="flex items-center gap-2">
-              <Calendar size={20} style={{ color: 'var(--neon-purple)' }} />
+              <Clock size={20} style={{ color: 'var(--neon-purple)' }} />
               <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                📅 三個月動態減脂方案 (12 週週期化)
+                📅 三個月動態減脂方案 (每週訓練時數起點)
               </span>
-              <span className={`badge ${targets.threeMonthsInfo.isDietBreakWeek ? 'badge-purple' : 'badge-cyan'}`}>
-                Month {targets.threeMonthsInfo.month} · Week {targets.threeMonthsInfo.week}
+              <span className="badge badge-purple">
+                {targets.threeMonthsInfo.gender === 'female' ? '女性專屬係數' : '男性專屬係數'}
               </span>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setIsKnowledgeModalOpen(true)}
-            >
-              💡 執行原則 & 補劑
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsThreeMonthsModalOpen(true)}
+              >
+                📊 查看男女對照表
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsKnowledgeModalOpen(true)}
+              >
+                💡 執行心法
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
-              當前階段：{targets.threeMonthsInfo.stageName}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                className="btn btn-secondary btn-icon btn-sm"
-                style={{ width: '28px', height: '28px' }}
-                disabled={targets.threeMonthsInfo.week <= 1}
-                onClick={() => handleThreeMonthsWeekChange(-1)}
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>第 {targets.threeMonthsInfo.week} 週</span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-icon btn-sm"
-                style={{ width: '28px', height: '28px' }}
-                disabled={targets.threeMonthsInfo.week >= 12}
-                onClick={() => handleThreeMonthsWeekChange(1)}
-              >
-                <ChevronRight size={14} />
-              </button>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+              當前每週訓練/運動時數 (點擊即時切換試算)：
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+              {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => (
+                <button
+                  key={hrs}
+                  type="button"
+                  className={`btn btn-sm ${currentTrainingHours === hrs ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    borderColor: currentTrainingHours === hrs ? 'var(--neon-purple)' : undefined,
+                    boxShadow: currentTrainingHours === hrs ? '0 0 10px rgba(168, 85, 247, 0.4)' : undefined,
+                  }}
+                  onClick={() => handleTrainingHoursChange(hrs)}
+                >
+                  ⏱️ {hrs} 小時 {hrs === '4-5' ? '(推薦)' : ''}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -586,9 +593,25 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             padding: '0.65rem 0.85rem',
             borderRadius: '0.65rem',
             fontSize: '0.82rem',
-            color: 'var(--text-muted)'
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem'
           }}>
-            {targets.threeMonthsInfo.notes}
+            <div>
+              <span style={{ color: 'var(--neon-purple)', fontWeight: 700 }}>
+                係數配比：
+              </span>
+              <span style={{ color: 'var(--text-main)', marginLeft: '0.3rem' }}>
+                碳水 <strong>{targets.threeMonthsInfo.carbRatio}</strong> g/kg · 
+                蛋白質 <strong>{targets.threeMonthsInfo.proteinRatio}</strong> g/kg · 
+                脂肪 <strong>{targets.threeMonthsInfo.fatRatio}</strong> g/kg
+              </span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+              執行 7–10 天後依體態回饋微調，勿因單日體重波動改方案
+            </div>
           </div>
         </div>
       )}
@@ -1463,6 +1486,165 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
 
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setIsSprintTableModalOpen(false)}>
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: 三個月動態版 · 每週訓練時數對照表 ==================== */}
+      {isThreeMonthsModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '780px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Clock size={20} style={{ color: 'var(--neon-purple)' }} />
+                <h3 className="modal-title">三個月動態版 | 男性 & 女性每週訓練時數對照表</h3>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setIsThreeMonthsModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              <div style={{
+                background: 'rgba(168, 85, 247, 0.08)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+                fontSize: '0.85rem',
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--neon-purple)', marginBottom: '0.25rem' }}>
+                  公式：每日克數 = 當前體重 (kg) × 對應係數
+                </div>
+                <div style={{ color: 'var(--text-muted)' }}>
+                  根據每週訓練小時數選擇起點；不是訓練越多就越應該硬壓熱量。男女係數不同，按自己的訓練量和當前體重計算，不照抄他人攝入。
+                </div>
+              </div>
+
+              {/* 男性對照表 */}
+              <div style={{ background: 'rgba(12, 19, 34, 0.7)', borderRadius: '0.75rem', border: '1px solid var(--border-color)', padding: '0.75rem' }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--neon-cyan)', fontSize: '0.9rem' }}>
+                    👨 男性起點對照表 (3-MONTH · 男性)
+                  </span>
+                  {activeProfile.gender === 'male' && (
+                    <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>您當前適用性別</span>
+                  )}
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.5rem' }}>每週訓練</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-amber)' }}>碳水 (g/kg)</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-cyan)' }}>蛋白質 (g/kg)</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-rose)' }}>脂肪 (g/kg)</th>
+                        <th style={{ padding: '0.5rem' }}>您的克數試算 ({activeProfile.weightKg}kg)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => {
+                        const row = THREE_MONTHS_TABLE.male[hrs];
+                        const isCurrent = activeProfile.gender === 'male' && currentTrainingHours === hrs;
+                        return (
+                          <tr
+                            key={hrs}
+                            style={{
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                              background: isCurrent ? 'rgba(0, 245, 155, 0.12)' : 'transparent',
+                              fontWeight: isCurrent ? 700 : 400,
+                            }}
+                          >
+                            <td style={{ padding: '0.5rem' }}>
+                              {hrs} 小時 {isCurrent && <span style={{ color: 'var(--neon-green)' }}>👈 當前</span>}
+                            </td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-amber)', fontWeight: 700 }}>{row.carbRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-cyan)', fontWeight: 700 }}>{row.proteinRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-rose)', fontWeight: 700 }}>{row.fatRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              C {Math.round(activeProfile.weightKg * row.carbRatio)}g / P {Math.round(activeProfile.weightKg * row.proteinRatio)}g / F {Math.round(activeProfile.weightKg * row.fatRatio)}g
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 女性對照表 */}
+              <div style={{ background: 'rgba(12, 19, 34, 0.7)', borderRadius: '0.75rem', border: '1px solid var(--border-color)', padding: '0.75rem' }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--neon-purple)', fontSize: '0.9rem' }}>
+                    👩 女性起點對照表 (3-MONTH · 女性)
+                  </span>
+                  {activeProfile.gender === 'female' && (
+                    <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>您當前適用性別</span>
+                  )}
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.5rem' }}>每週訓練</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-amber)' }}>碳水 (g/kg)</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-cyan)' }}>蛋白質 (g/kg)</th>
+                        <th style={{ padding: '0.5rem', color: 'var(--neon-rose)' }}>脂肪 (g/kg)</th>
+                        <th style={{ padding: '0.5rem' }}>您的克數試算 ({activeProfile.weightKg}kg)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => {
+                        const row = THREE_MONTHS_TABLE.female[hrs];
+                        const isCurrent = activeProfile.gender === 'female' && currentTrainingHours === hrs;
+                        return (
+                          <tr
+                            key={hrs}
+                            style={{
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                              background: isCurrent ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+                              fontWeight: isCurrent ? 700 : 400,
+                            }}
+                          >
+                            <td style={{ padding: '0.5rem' }}>
+                              {hrs} 小時 {isCurrent && <span style={{ color: 'var(--neon-purple)' }}>👈 當前</span>}
+                            </td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-amber)', fontWeight: 700 }}>{row.carbRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-cyan)', fontWeight: 700 }}>{row.proteinRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', color: 'var(--neon-rose)', fontWeight: 700 }}>{row.fatRatio} g/kg</td>
+                            <td style={{ padding: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              C {Math.round(activeProfile.weightKg * row.carbRatio)}g / P {Math.round(activeProfile.weightKg * row.proteinRatio)}g / F {Math.round(activeProfile.weightKg * row.fatRatio)}g
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 核心規則 */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.65rem',
+                fontSize: '0.8rem',
+                lineHeight: 1.6,
+                color: 'var(--text-muted)'
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--neon-amber)', marginBottom: '0.25rem' }}>
+                  📌 三個月動態版執行核心準則：
+                </div>
+                {THREE_MONTHS_RULES.map((rule, idx) => (
+                  <div key={idx}>• {rule}</div>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setIsThreeMonthsModalOpen(false)}>
                 關閉
               </button>
             </div>

@@ -5,6 +5,7 @@ import type {
   FitnessGoal,
   Gender,
   UserProfile,
+  WeeklyTrainingHours,
 } from '../types';
 
 export const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, { label: string; desc: string; factor: number }> = {
@@ -192,59 +193,64 @@ export function getTanCarbCyclingConfig(phase: CarbCyclingPhase = 'baseline'): T
   };
 }
 
-// ==================== 3. 三個月動態減脂方案 (12 週週期化) ====================
+// ==================== 3. 三個月動態減脂方案 (根據每週訓練小時數計算起點與動態反饋) ====================
 export interface ThreeMonthsConfig {
-  week: number;
-  month: number;
-  stageName: string;
+  hours: WeeklyTrainingHours;
+  hoursLabel: string;
   carbRatio: number;
   proteinRatio: number;
   fatRatio: number;
-  isDietBreakWeek: boolean;
+  gender: Gender;
   notes: string;
+  rules: string[];
 }
 
-export function getThreeMonthsConfig(week: number, gender: Gender): ThreeMonthsConfig {
-  const clampedWeek = Math.min(12, Math.max(1, Math.round(week || 1)));
+export const THREE_MONTHS_TABLE: Record<Gender, Record<WeeklyTrainingHours, { carbRatio: number; proteinRatio: number; fatRatio: number }>> = {
+  male: {
+    '2-3': { carbRatio: 2.2, proteinRatio: 1.4, fatRatio: 0.8 },
+    '4-5': { carbRatio: 2.5, proteinRatio: 1.6, fatRatio: 0.9 },
+    '6-7': { carbRatio: 3.0, proteinRatio: 1.7, fatRatio: 1.0 },
+    '8-9': { carbRatio: 3.5, proteinRatio: 1.8, fatRatio: 1.0 },
+  },
+  female: {
+    '2-3': { carbRatio: 2.0, proteinRatio: 1.4, fatRatio: 1.0 },
+    '4-5': { carbRatio: 2.2, proteinRatio: 1.6, fatRatio: 1.1 },
+    '6-7': { carbRatio: 2.5, proteinRatio: 1.7, fatRatio: 1.1 },
+    '8-9': { carbRatio: 3.0, proteinRatio: 1.8, fatRatio: 1.2 },
+  },
+};
 
-  if (clampedWeek <= 4) {
-    return {
-      week: clampedWeek,
-      month: 1,
-      stageName: '第 1 個月：代謝啟動與健康飲食習慣建立 (Week 1–4)',
-      carbRatio: 2.8,
-      proteinRatio: 1.6,
-      fatRatio: gender === 'male' ? 0.6 : 0.7,
-      isDietBreakWeek: false,
-      notes: '建立優質原型食物結構，維持輕微熱量缺口，適應穩定減脂節奏。',
-    };
-  }
-  if (clampedWeek <= 8) {
-    const isBreak = clampedWeek === 8;
-    return {
-      week: clampedWeek,
-      month: 2,
-      stageName: isBreak ? 'Week 8：飲食重置充碳週 (Diet Break)' : '第 2 個月：深化燃脂與碳循環 (Week 5–8)',
-      carbRatio: isBreak ? 3.5 : 2.2,
-      proteinRatio: isBreak ? 1.4 : 1.8,
-      fatRatio: gender === 'male' ? 0.5 : 0.6,
-      isDietBreakWeek: isBreak,
-      notes: isBreak
-        ? '短暫恢復維持熱量，使瘦素與甲狀腺素回升，預防代謝適應。'
-        : '提高蛋白質攝入保護瘦體重，碳水控制在訓練前後。',
-    };
-  }
-  // 9–12 週
-  const isFinalBreak = clampedWeek === 12;
+export const THREE_MONTHS_RULES = [
+  '根據每週訓練小時數選擇起點；不是訓練越多就越應該硬壓熱量。',
+  '男女係數不同；按自己的訓練量和當前體重計算，不照抄他人攝入。',
+  '每日克數 = 當前體重 (kg) × 對應係數',
+  '從對應訓練量區間開始，執行 7–10 天後再按反饋調整。',
+  '不要因為某一天體重波動就立刻改方案。',
+];
+
+export const WEEKLY_TRAINING_HOURS_OPTIONS: { value: WeeklyTrainingHours; label: string; desc: string }[] = [
+  { value: '2-3', label: '2–3 小時', desc: '輕量運動或新手入門' },
+  { value: '4-5', label: '4–5 小時', desc: '常規健身頻率（推薦起點）' },
+  { value: '6-7', label: '6–7 小時', desc: '進階規律分化訓練' },
+  { value: '8-9', label: '8–9 小時', desc: '高容量訓練或大課表' },
+];
+
+export function getThreeMonthsConfig(
+  hours: WeeklyTrainingHours = '4-5',
+  gender: Gender = 'male'
+): ThreeMonthsConfig {
+  const g: Gender = gender === 'female' ? 'female' : 'male';
+  const table = THREE_MONTHS_TABLE[g][hours] || THREE_MONTHS_TABLE[g]['4-5'];
+
   return {
-    week: clampedWeek,
-    month: 3,
-    stageName: isFinalBreak ? 'Week 12：衝刺結算與過渡維持' : '第 3 個月：突破平台與體態雕塑 (Week 9–12)',
-    carbRatio: isFinalBreak ? 3.0 : 1.8,
-    proteinRatio: 2.0,
-    fatRatio: gender === 'male' ? 0.5 : 0.5,
-    isDietBreakWeek: isFinalBreak,
-    notes: '高蛋白抗肌肉分解，結合中高強度有氧，最大化雕塑線條。',
+    hours,
+    hoursLabel: `每週訓練 ${hours} 小時`,
+    carbRatio: table.carbRatio,
+    proteinRatio: table.proteinRatio,
+    fatRatio: table.fatRatio,
+    gender: g,
+    notes: '從對應訓練量區間開始，執行 7–10 天後再按反饋調整。不要因為某一天體重波動就立刻改方案。',
+    rules: THREE_MONTHS_RULES,
   };
 }
 
@@ -288,7 +294,7 @@ export function getUserNutritionTargets(
     currentDate?: string;
     overridePhase?: CarbCyclingPhase;
     overrideSprintDay?: number;
-    overrideThreeMonthsWeek?: number;
+    overrideWeeklyTrainingHours?: WeeklyTrainingHours;
   }
 ) {
   const protocol: DietProtocol = user.dietProtocol || 'standard';
@@ -351,18 +357,10 @@ export function getUserNutritionTargets(
     };
   }
 
-  // 3. 方案三：三個月動態減脂方案
+  // 3. 方案三：三個月動態減脂方案 (以每週運動訓練時數計算)
   if (protocol === 'dynamic_3months') {
-    let week = options?.overrideThreeMonthsWeek || user.threeMonthsManualWeek || 1;
-    if (!options?.overrideThreeMonthsWeek && user.threeMonthsStartDate) {
-      const start = new Date(user.threeMonthsStartDate);
-      const cur = options?.currentDate ? new Date(options.currentDate) : new Date();
-      const diffMs = cur.getTime() - start.getTime();
-      const diffWeeks = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 7)) + 1;
-      week = Math.min(12, Math.max(1, diffWeeks));
-    }
-
-    const threeMonth = getThreeMonthsConfig(week, user.gender);
+    const hours: WeeklyTrainingHours = options?.overrideWeeklyTrainingHours || user.weeklyTrainingHours || '4-5';
+    const threeMonth = getThreeMonthsConfig(hours, user.gender);
     const targetProtein = Math.round(user.weightKg * threeMonth.proteinRatio);
     const targetCarbs = Math.round(user.weightKg * threeMonth.carbRatio);
     const targetFat = Math.round(user.weightKg * threeMonth.fatRatio);

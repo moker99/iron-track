@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, Sparkles, User, Flame } from 'lucide-react';
-import type { ActivityLevel, FitnessGoal, Gender, UserProfile, DietProtocol, CarbCyclingPhase } from '../types';
+import type { ActivityLevel, FitnessGoal, Gender, UserProfile, DietProtocol, CarbCyclingPhase, WeeklyTrainingHours } from '../types';
 import {
   ACTIVITY_MULTIPLIERS,
   calculateBMI,
@@ -44,6 +44,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     profile?.sprintStartDate || new Date().toISOString().split('T')[0]
   );
   const [sprintManualDay, setSprintManualDay] = useState<number>(profile?.sprintManualDay || 1);
+  const [weeklyTrainingHours, setWeeklyTrainingHours] = useState<WeeklyTrainingHours>(
+    profile?.weeklyTrainingHours || '4-5'
+  );
   const [threeMonthsStartDate, setThreeMonthsStartDate] = useState<string>(
     profile?.threeMonthsStartDate || new Date().toISOString().split('T')[0]
   );
@@ -105,7 +108,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       };
     }
     if (dietProtocol === 'dynamic_3months') {
-      const tm = getThreeMonthsConfig(threeMonthsManualWeek, gender);
+      const tm = getThreeMonthsConfig(weeklyTrainingHours, gender);
       const p = Math.round(weightKg * tm.proteinRatio);
       const c = Math.round(weightKg * tm.carbRatio);
       const f = Math.round(weightKg * tm.fatRatio);
@@ -115,9 +118,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         protein: p,
         carbs: c,
         fat: f,
-        title: `三個月動態減脂 · 第 ${threeMonthsManualWeek} 週 (${tm.stageName})`,
-        notes: tm.notes,
-        isHighCarb: tm.isDietBreakWeek,
+        title: `三個月動態減脂 · ${tm.hoursLabel} (${gender === 'female' ? '女性專屬係數' : '男性專屬係數'})`,
+        notes: `碳水 ${tm.carbRatio}g/kg, 蛋白質 ${tm.proteinRatio}g/kg, 脂肪 ${tm.fatRatio}g/kg。${tm.notes}`,
+        isHighCarb: false,
       };
     }
     // standard
@@ -134,7 +137,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     dietProtocol,
     sprintManualDay,
     carbCyclingPhase,
-    threeMonthsManualWeek,
+    weeklyTrainingHours,
     gender,
     weightKg,
     autoTargetCals,
@@ -171,6 +174,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       carbCyclingPhase,
       sprintStartDate,
       sprintManualDay: Number(sprintManualDay),
+      weeklyTrainingHours,
       threeMonthsStartDate,
       threeMonthsManualWeek: Number(threeMonthsManualWeek),
 
@@ -601,31 +605,68 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               )}
 
               {dietProtocol === 'dynamic_3months' && (
-                <div style={{ marginTop: '0.85rem', background: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.2)', padding: '0.75rem', borderRadius: '0.6rem' }}>
-                  <div className="grid-cols-2 grid-responsive-2 gap-3">
+                <div style={{ marginTop: '0.85rem', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.3)', padding: '0.85rem', borderRadius: '0.75rem' }}>
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
+                    <label className="label" style={{ marginBottom: 0, fontWeight: 700, color: 'var(--neon-purple)' }}>
+                      ⏱️ 選擇每週訓練/運動時數 (起點依據)
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {gender === 'female' ? '女性專屬係數' : '男性專屬係數'}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                    {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => (
+                      <button
+                        key={hrs}
+                        type="button"
+                        className={`btn btn-sm ${weeklyTrainingHours === hrs ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          flexDirection: 'column',
+                          gap: '0.15rem',
+                          padding: '0.5rem 0.25rem',
+                          borderColor: weeklyTrainingHours === hrs ? 'var(--neon-purple)' : undefined,
+                          boxShadow: weeklyTrainingHours === hrs ? '0 0 10px rgba(168, 85, 247, 0.4)' : undefined,
+                        }}
+                        onClick={() => setWeeklyTrainingHours(hrs)}
+                      >
+                        <div>{hrs} 小時</div>
+                        <div style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 400 }}>
+                          {hrs === '4-5' ? '推薦起點' : hrs === '2-3' ? '初階起步' : hrs === '6-7' ? '進階規律' : '高容量'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid-cols-2 grid-responsive-2 gap-3" style={{ marginTop: '0.6rem' }}>
                     <div>
-                      <label className="label">三個月計劃起始日</label>
+                      <label className="label" style={{ fontSize: '0.75rem' }}>計劃起始日 (選填)</label>
                       <input
                         type="date"
                         className="input"
+                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
                         value={threeMonthsStartDate}
                         onChange={e => setThreeMonthsStartDate(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="label">當前進行週數 (1~12 週)</label>
+                      <label className="label" style={{ fontSize: '0.75rem' }}>當前進度週數 (1~12 週)</label>
                       <input
                         type="number"
                         min={1}
                         max={12}
                         className="input"
+                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
                         value={threeMonthsManualWeek}
                         onChange={e => setThreeMonthsManualWeek(Math.min(12, Math.max(1, Number(e.target.value))))}
                       />
                     </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--neon-purple)', marginTop: '0.4rem' }}>
-                    📅 提示：Week 8 為飲食重置週 (Diet Break)；Week 12 為衝刺結算週。
+
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem', lineHeight: 1.4 }}>
+                    📌 <strong>起點核心心法</strong>：不是訓練越多就越應該硬壓熱量！從對應訓練量區間開始，執行 <strong>7–10 天後</strong>再按體態與體能回饋調整，不要因為某一天體重波動就立刻改方案。
                   </div>
                 </div>
               )}

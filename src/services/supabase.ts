@@ -139,6 +139,7 @@ export class SupabaseSyncService {
             carbCyclingPhase: p.carb_cycling_phase || 'baseline',
             sprintStartDate: p.sprint_start_date || undefined,
             sprintManualDay: p.sprint_manual_day ? Number(p.sprint_manual_day) : undefined,
+            weeklyTrainingHours: p.weekly_training_hours || '4-5',
             threeMonthsStartDate: p.three_months_start_date || undefined,
             threeMonthsManualWeek: p.three_months_manual_week ? Number(p.three_months_manual_week) : undefined,
             customCalories: p.custom_calories ? Number(p.custom_calories) : undefined,
@@ -316,6 +317,7 @@ export class SupabaseSyncService {
         carb_cycling_phase: profile.carbCyclingPhase || 'baseline',
         sprint_start_date: profile.sprintStartDate || null,
         sprint_manual_day: profile.sprintManualDay || null,
+        weekly_training_hours: profile.weeklyTrainingHours || '4-5',
         three_months_start_date: profile.threeMonthsStartDate || null,
         three_months_manual_week: profile.threeMonthsManualWeek || null,
         custom_calories: profile.customCalories || null,
@@ -525,6 +527,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   carb_cycling_phase TEXT DEFAULT 'baseline',
   sprint_start_date TEXT,
   sprint_manual_day INTEGER,
+  weekly_training_hours TEXT DEFAULT '4-5',
   three_months_start_date TEXT,
   three_months_manual_week INTEGER,
   custom_calories INTEGER,
@@ -540,6 +543,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS diet_protocol TEXT DEFAULT 
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS carb_cycling_phase TEXT DEFAULT 'baseline';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sprint_start_date TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sprint_manual_day INTEGER;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS weekly_training_hours TEXT DEFAULT '4-5';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS three_months_start_date TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS three_months_manual_week INTEGER;
 

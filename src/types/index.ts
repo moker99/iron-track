@@ -7,6 +7,8 @@ export type UserRole = 'admin' | 'member';
 export type DietProtocol = 'standard' | 'tan_carb_cycling' | 'sprint_40d' | 'dynamic_3months';
 export type CarbCyclingPhase = 'baseline' | 'high_carb' | 'low_carb';
 
+export type WeeklyTrainingHours = '2-3' | '4-5' | '6-7' | '8-9';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -25,6 +27,7 @@ export interface UserProfile {
   carbCyclingPhase?: CarbCyclingPhase;
   sprintStartDate?: string;       // 40天衝刺開始日期 (YYYY-MM-DD)
   sprintManualDay?: number;       // 40天衝刺手動指定天數 (1~40)
+  weeklyTrainingHours?: WeeklyTrainingHours; // 3個月動態版：每週訓練小時數 ('2-3' | '4-5' | '6-7' | '8-9')
   threeMonthsStartDate?: string;  // 3個月動態開始日期 (YYYY-MM-DD)
   threeMonthsManualWeek?: number; // 3個月動態手動指定週數 (1~12)
 

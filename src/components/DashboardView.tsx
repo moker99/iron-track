@@ -105,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
             {targets.protocol === 'dynamic_3months' && (
               <span className="badge badge-cyan">
-                📅 3個月動態 Week {targets.threeMonthsInfo?.week}
+                📅 3個月動態 · {targets.threeMonthsInfo?.hoursLabel || '訓練時數'}
               </span>
             )}
           </div>
