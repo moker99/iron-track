@@ -72,15 +72,34 @@ export const App: React.FC = () => {
     setActiveProfileId(authedUser.id);
     setActiveProfile(authedUser);
     setSwitchingTargetProfile(null);
+
+    // Admin 登入後，建立 session 暫存，本次瀏覽内切換任何成員均免密碼
+    if (authedUser.role === 'admin') {
+      StorageService.setAdminSessionUnlocked(true);
+    }
   };
 
   const handleLockDevice = () => {
     StorageService.setAuthenticatedProfileId(null);
     setAuthenticatedProfileId(null);
+    // 手動鎖定時清除 admin session
+    StorageService.clearAdminSessionUnlock();
   };
 
   const handleRequestSwitchProfile = (target: UserProfile) => {
     if (target.id === activeProfile.id) return;
+
+    // 若 Admin session 已解鎖，直接切換不需密碼
+    if (StorageService.isAdminSessionUnlocked()) {
+      setAuthenticatedProfileId(target.id);
+      StorageService.setAuthenticatedProfileId(target.id);
+      setActiveProfileId(target.id);
+      const found = profiles.find(p => p.id === target.id) || target;
+      setActiveProfile(found);
+      return;
+    }
+
+    // 一般狀態：彈出密碼驗證彈窗
     setSwitchingTargetProfile(target);
   };
 

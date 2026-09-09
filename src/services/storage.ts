@@ -30,6 +30,8 @@ export const STORAGE_KEYS = {
   CUSTOM_FOODS: 'irontrack_custom_foods',
   CUSTOM_ROUTINES: 'irontrack_custom_routines',
   CLOUD_CONFIG: 'irontrack_cloud_config',
+  // Session storage key: 管理員本次登入後免密碼切換 (關閉分頁後自動清除)
+  ADMIN_SESSION: 'irontrack_admin_session_unlocked',
 };
 
 export class StorageService {
@@ -44,7 +46,30 @@ export class StorageService {
       this.setActiveProfileId(id);
     } else {
       localStorage.removeItem(STORAGE_KEYS.AUTH_PROFILE_ID);
+      // 登出時也清除管理員 session 暫存
+      this.clearAdminSessionUnlock();
     }
+  }
+
+  /**
+   * 管理員 Session 解鎖：
+   * Admin 登入後，本次瀏覽 session 內切換任何成員均免密碼驗證。
+   * 使用 sessionStorage：關閉分頁/瀏覽器後自動清除，安全又方便。
+   */
+  static isAdminSessionUnlocked(): boolean {
+    return sessionStorage.getItem(STORAGE_KEYS.ADMIN_SESSION) === 'true';
+  }
+
+  static setAdminSessionUnlocked(unlocked: boolean): void {
+    if (unlocked) {
+      sessionStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, 'true');
+    } else {
+      sessionStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
+    }
+  }
+
+  static clearAdminSessionUnlock(): void {
+    sessionStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
   }
 
   static verifyPassword(profileId: string, inputPass: string): boolean {
