@@ -32,7 +32,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'ex-incline-pushups', name: '手墊高上斜伏地挺身 (Incline Push-ups)', category: 'chest', equipment: 'bodyweight', primaryMuscle: '下胸暖身與新手強化' },
   { id: 'ex-diamond-pushups', name: '鑽石/窄距伏地挺身 (Diamond Push-ups)', category: 'chest', equipment: 'bodyweight', primaryMuscle: '胸肌內側中縫 / 三頭' },
   { id: 'ex-hand-release-pushups', name: '釋手伏地挺身 (Hand-Release Push-ups)', category: 'chest', equipment: 'bodyweight', primaryMuscle: '全行程胸肌離心底層發力' },
-  { id: 'ex-db-pullover', name: '啞鈴仰臥套頭拉髓 (Dumbbell Pullover)', category: 'chest', equipment: 'dumbbell', primaryMuscle: '胸大肌上部 / 前鋸肌 / 胸廓' },
+  { id: 'ex-db-pullover', name: '啞鈴仰臥套頭拉舉 (Dumbbell Pullover / 鯊魚線雕刻)', category: 'chest', equipment: 'dumbbell', primaryMuscle: '胸大肌上部 / 前鋸肌 (鯊魚肌/鯊魚線) / 胸廓擴展' },
   { id: 'ex-svend-press', name: '槓鈴片擠壓推胸 (Svend Press)', category: 'chest', equipment: 'other', primaryMuscle: '胸大肌內側等長收縮' },
 
   // ==================== 2. 背部 (BACK) ====================
@@ -177,10 +177,15 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   // ==================== 6. 核心 (CORE) ====================
   { id: 'ex-hanging-leg-raise', name: '懸垂直腿舉腿 (Hanging Straight Leg Raise)', category: 'core', equipment: 'bodyweight', primaryMuscle: '下腹直肌 / 骨盆前傾矯正' },
   { id: 'ex-hanging-knee-raise', name: '懸垂屈膝抬腿 (Hanging Knee Raise)', category: 'core', equipment: 'bodyweight', primaryMuscle: '下腹直肌精準捲動' },
+  { id: 'ex-hanging-oblique-raise', name: '懸垂側轉體抬腿 (Hanging Oblique Knee Raise / 懸垂鯊魚線捲腹)', category: 'core', equipment: 'bodyweight', primaryMuscle: '前鋸肌 / 腹外斜肌 / 雕刻鯊魚肌與側腹羽狀線' },
   { id: 'ex-captains-chair-raise', name: '羅馬椅屈膝抬腿 (Captain’s Chair Raise)', category: 'core', equipment: 'bodyweight', primaryMuscle: '背部靠墊無借力下腹肌' },
   { id: 'ex-lying-leg-raise', name: '仰臥直腿抬腿 (Lying Leg Raise)', category: 'core', equipment: 'bodyweight', primaryMuscle: '下腹部' },
   { id: 'ex-cable-crunch', name: '滑輪跪姿繩索捲腹 (Cable Crunch)', category: 'core', equipment: 'cable', primaryMuscle: '腹直肌超載抗伸展' },
-  { id: 'ex-ab-wheel', name: '健腹輪滾輪 (Ab Wheel Rollout)', category: 'core', equipment: 'other', primaryMuscle: '腹直肌抗伸展終極之王' },
+  { id: 'ex-ab-wheel', name: '健腹輪滾輪 (Ab Wheel Rollout)', category: 'core', equipment: 'other', primaryMuscle: '腹直肌抗伸展 / 前鋸肌 (鯊魚線) 深度延展' },
+  { id: 'ex-scapular-pushups', name: '前鋸肌肩胛伏地挺身 (Scapular Push-ups / 鯊魚肌俯臥推)', category: 'core', equipment: 'bodyweight', primaryMuscle: '前鋸肌 (鯊魚肌/鯊魚線) / 肩胛前引與肋骨羽狀線條' },
+  { id: 'ex-cable-serratus-punch', name: '滑輪前鋸肌衝刺出拳 (Cable Serratus Punch / 繩索鯊魚線出拳)', category: 'core', equipment: 'cable', primaryMuscle: '前鋸肌 (鯊魚肌/鯊魚線) / 核心單側前伸爆發' },
+  { id: 'ex-cable-v-bar-serratus', name: '滑輪V把前鋸肌斜推 (Cable V-Bar Incline Serratus Punch / 坐姿斜上推)', category: 'core', equipment: 'cable', primaryMuscle: '前鋸肌 (鯊魚肌/鯊魚線) / 肩胛骨上旋與極致前引' },
+  { id: 'ex-db-serratus-press', name: '仰臥啞鈴前鋸肌推舉 (Dumbbell Serratus Up-Press)', category: 'core', equipment: 'dumbbell', primaryMuscle: '前鋸肌 (鯊魚線) / 仰臥純肩胛前引孤立' },
   { id: 'ex-plank', name: '經典平板支撐 (Standard Plank)', category: 'core', equipment: 'bodyweight', primaryMuscle: '腹橫肌 / 核心抗伸展耐力' },
   { id: 'ex-weighted-plank', name: '背部負重平板支撐 (Weighted Plank)', category: 'core', equipment: 'other', primaryMuscle: '深層腹腔剛性' },
   { id: 'ex-side-plank', name: '側平板支撐 (Side Plank)', category: 'core', equipment: 'bodyweight', primaryMuscle: '腹內外斜肌 / 腰方肌側向穩定' },
