@@ -108,7 +108,16 @@ export interface WorkoutRoutineTemplate {
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export type FoodCategory = 'meat' | 'staple' | 'egg_dairy' | 'veggie' | 'supplement' | 'other';
+export type FoodCategory =
+  | 'staple'
+  | 'meat'
+  | 'egg_dairy'
+  | 'veggie'
+  | 'fruit'
+  | 'fat_nuts'
+  | 'supplement'
+  | 'beverage'
+  | 'other';
 
 export interface FoodItem {
   id: string;

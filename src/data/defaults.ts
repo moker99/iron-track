@@ -234,29 +234,93 @@ export const DEFAULT_EXERCISES: Exercise[] = [
 export const DEFAULT_ROUTINE_TEMPLATES: WorkoutRoutineTemplate[] = [];
 
 export const DEFAULT_FOOD_ITEMS: FoodItem[] = [
-  // 蛋白質主力
-  { id: 'f-chicken-breast', name: '即食舒肥雞胸肉 (100g)', calories: 120, protein: 24, carbs: 1, fat: 2, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
-  { id: 'f-boiled-egg', name: '水煮全蛋 (大顆/1顆)', calories: 75, protein: 6.5, carbs: 0.6, fat: 5.2, servingSize: '1顆 (55g)', baseWeightGrams: 55, category: 'egg_dairy' },
-  { id: 'f-egg-whites', name: '純蛋白液 / 蛋白丁 (100g)', calories: 50, protein: 11, carbs: 0.7, fat: 0.2, servingSize: '100g', baseWeightGrams: 100, category: 'egg_dairy' },
-  { id: 'f-whey-isolate', name: '乳清蛋白粉 (分離乳清/1匙)', calories: 115, protein: 25, carbs: 1.5, fat: 0.8, servingSize: '1份 (30g)', baseWeightGrams: 30, category: 'supplement' },
-  { id: 'f-beef-steak', name: '牛板腱 / 菲力牛排 (100g)', calories: 145, protein: 22, carbs: 0, fat: 6, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
-  { id: 'f-salmon', name: '香煎大西洋鮭魚 (100g)', calories: 206, protein: 22, carbs: 0, fat: 12.5, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
-  { id: 'f-canned-tuna', name: '水煮鮪魚罐頭 (100g瀝乾)', calories: 105, protein: 24, carbs: 0, fat: 0.8, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
-  { id: 'f-greek-yogurt', name: '無糖希臘式優格 (100g)', calories: 60, protein: 10, carbs: 3.8, fat: 0.4, servingSize: '100g', baseWeightGrams: 100, category: 'egg_dairy' },
-  { id: 'f-tofu', name: '傳統板豆腐 (100g)', calories: 88, protein: 8.5, carbs: 1.5, fat: 5.2, servingSize: '100g', baseWeightGrams: 100, category: 'staple' },
-  { id: 'f-soy-milk', name: '無糖高纖豆漿 (1瓶/400ml)', calories: 135, protein: 14.5, carbs: 7.2, fat: 5.5, servingSize: '400ml', baseWeightGrams: 400, category: 'egg_dairy' },
+  // 1. 肉類與海鮮 (Meat & Seafood)
+  { id: 'f-chicken-breast', name: '舒肥雞胸肉 (100g)', calories: 120, protein: 24, carbs: 1, fat: 2, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-chicken-thigh-skinless', name: '烤雞腿排 (去皮/150g)', calories: 210, protein: 28.5, carbs: 0, fat: 10.5, servingSize: '1支 (150g)', baseWeightGrams: 150, category: 'meat' },
+  { id: 'f-braised-beef-shank', name: '滷牛腱切片 (100g)', calories: 155, protein: 25, carbs: 1.5, fat: 5.5, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-beef-steak', name: '牛排 (板腱/菲力/100g)', calories: 145, protein: 22, carbs: 0, fat: 6, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-pork-tenderloin', name: '豬里肌肉排 (100g)', calories: 140, protein: 22, carbs: 0, fat: 5.2, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-tilapia-fillet', name: '鯛魚片 (100g)', calories: 108, protein: 21, carbs: 0.5, fat: 2.5, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-milkfish-fillet', name: '虱目魚柳 (清蒸/100g)', calories: 160, protein: 21.5, carbs: 0.2, fat: 8.2, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-salmon', name: '鮭魚排 (100g)', calories: 206, protein: 22, carbs: 0, fat: 12.5, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-shrimp', name: '蝦仁 (清燙/100g)', calories: 90, protein: 19.5, carbs: 0.5, fat: 1, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
+  { id: 'f-canned-tuna', name: '水煮鮪魚罐頭 (瀝乾/100g)', calories: 105, protein: 24, carbs: 0, fat: 0.8, servingSize: '100g', baseWeightGrams: 100, category: 'meat' },
 
-  // 優質碳水化合物
-  { id: 'f-sweet-potato', name: '蒸地瓜 / 烤番薯 (中條)', calories: 140, protein: 2.2, carbs: 33, fat: 0.3, servingSize: '1條 (約120g)', baseWeightGrams: 120, category: 'staple' },
-  { id: 'f-white-rice', name: '熟白米飯 (半碗/100g)', calories: 142, protein: 2.7, carbs: 31.5, fat: 0.4, servingSize: '100g', baseWeightGrams: 100, category: 'staple' },
-  { id: 'f-brown-rice', name: '糙米黑米飯 (100g)', calories: 130, protein: 3.1, carbs: 28, fat: 1.1, servingSize: '100g', baseWeightGrams: 100, category: 'staple' },
-  { id: 'f-oats', name: '原味大燕麥片 (乾重40g)', calories: 152, protein: 5.2, carbs: 26.5, fat: 2.8, servingSize: '40g', baseWeightGrams: 40, category: 'staple' },
-  { id: 'f-banana', name: '練前香蕉 (中等大小/1根)', calories: 105, protein: 1.3, carbs: 27, fat: 0.3, servingSize: '1根 (118g)', baseWeightGrams: 118, category: 'staple' },
+  // 2. 蛋品豆類與乳製品 (Egg, Soy & Dairy)
+  { id: 'f-tea-egg', name: '茶葉蛋 (1顆)', calories: 77, protein: 6.8, carbs: 1.2, fat: 5, servingSize: '1顆 (55g)', baseWeightGrams: 55, category: 'egg_dairy' },
+  { id: 'f-boiled-egg', name: '水煮蛋 (1顆)', calories: 75, protein: 6.5, carbs: 0.6, fat: 5.2, servingSize: '1顆 (55g)', baseWeightGrams: 55, category: 'egg_dairy' },
+  { id: 'f-soft-boiled-egg', name: '溫泉蛋 / 溏心蛋 (1顆)', calories: 80, protein: 6.5, carbs: 2, fat: 5.2, servingSize: '1顆 (55g)', baseWeightGrams: 55, category: 'egg_dairy' },
+  { id: 'f-egg-whites', name: '蛋白液 / 蛋白丁 (100g)', calories: 50, protein: 11, carbs: 0.7, fat: 0.2, servingSize: '100g', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-black-dried-tofu', name: '黑豆干 / 黃豆干 (1塊/100g)', calories: 165, protein: 19, carbs: 4, fat: 8, servingSize: '1塊 (100g)', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-tofu', name: '板豆腐 (100g)', calories: 88, protein: 8.5, carbs: 1.5, fat: 5.2, servingSize: '100g', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-silken-tofu', name: '嫩豆腐 (半盒/150g)', calories: 75, protein: 7.5, carbs: 2.5, fat: 4, servingSize: '半盒 (150g)', baseWeightGrams: 150, category: 'egg_dairy' },
+  { id: 'f-soy-milk', name: '無糖豆漿 (100ml)', calories: 34, protein: 3.6, carbs: 1.8, fat: 1.4, servingSize: '100ml', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-fresh-milk', name: '全脂鮮乳 (100ml)', calories: 62, protein: 3.1, carbs: 4.7, fat: 3.6, servingSize: '100ml', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-lowfat-milk', name: '低脂鮮乳 (100ml)', calories: 45, protein: 3.2, carbs: 4.8, fat: 1.5, servingSize: '100ml', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-greek-yogurt', name: '無糖希臘優格 (100g)', calories: 60, protein: 10, carbs: 3.8, fat: 0.4, servingSize: '100g', baseWeightGrams: 100, category: 'egg_dairy' },
+  { id: 'f-chawanmushi', name: '茶碗蒸 / 蒸蛋 (1杯/100g)', calories: 65, protein: 6, carbs: 2.5, fat: 3.5, servingSize: '1杯 (100g)', baseWeightGrams: 100, category: 'egg_dairy' },
 
-  // 蔬菜與健康油脂
-  { id: 'f-broccoli', name: '川燙綠花椰菜 (1碗/100g)', calories: 34, protein: 2.8, carbs: 6.6, fat: 0.4, servingSize: '100g', baseWeightGrams: 100, category: 'veggie' },
-  { id: 'f-avocado', name: '熟酪梨 (1/4顆/50g)', calories: 80, protein: 1, carbs: 4.2, fat: 7.3, servingSize: '50g', baseWeightGrams: 50, category: 'other' },
-  { id: 'f-almonds', name: '原味堅果杏仁 (1小把/15g)', calories: 90, protein: 3.1, carbs: 3.2, fat: 7.8, servingSize: '15g', baseWeightGrams: 15, category: 'other' },
+  // 3. 全穀雜糧與主食碳水 (Staple & Carbs)
+  { id: 'f-white-rice', name: '熟白米飯 (1碗/160g)', calories: 227, protein: 4.3, carbs: 50.4, fat: 0.6, servingSize: '1碗 (160g)', baseWeightGrams: 160, category: 'staple' },
+  { id: 'f-white-rice-half', name: '熟白米飯 (半碗/100g)', calories: 142, protein: 2.7, carbs: 31.5, fat: 0.4, servingSize: '半碗 (100g)', baseWeightGrams: 100, category: 'staple' },
+  { id: 'f-brown-rice', name: '糙米飯 / 黑米飯 (1碗/160g)', calories: 208, protein: 5, carbs: 44.8, fat: 1.8, servingSize: '1碗 (160g)', baseWeightGrams: 160, category: 'staple' },
+  { id: 'f-sweet-potato-baked', name: '烤地瓜 / 蒸地瓜 (150g)', calories: 180, protein: 2.8, carbs: 42, fat: 0.4, servingSize: '1條 (約150g)', baseWeightGrams: 150, category: 'staple' },
+  { id: 'f-sweet-corn', name: '甜玉米 (1根/180g)', calories: 150, protein: 4.5, carbs: 32, fat: 2, servingSize: '1根 (可食約180g)', baseWeightGrams: 180, category: 'staple' },
+  { id: 'f-onigiri-tuna', name: '鮪魚御飯糰 (1個)', calories: 215, protein: 5.5, carbs: 37, fat: 4.8, servingSize: '1個 (110g)', baseWeightGrams: 110, category: 'staple' },
+  { id: 'f-onigiri-meatfloss', name: '肉鬆御飯糰 (1個)', calories: 220, protein: 6, carbs: 39, fat: 4.2, servingSize: '1個 (105g)', baseWeightGrams: 105, category: 'staple' },
+  { id: 'f-oats-drink', name: '純濃燕麥飲 (290ml)', calories: 135, protein: 3.2, carbs: 25.5, fat: 2.3, servingSize: '1瓶 (290ml)', baseWeightGrams: 290, category: 'staple' },
+  { id: 'f-oats', name: '原味大燕麥片 (40g)', calories: 152, protein: 5.2, carbs: 26.5, fat: 2.8, servingSize: '40g', baseWeightGrams: 40, category: 'staple' },
+  { id: 'f-whole-wheat-toast', name: '全麥吐司 (1片/35g)', calories: 75, protein: 3.5, carbs: 13.5, fat: 1.2, servingSize: '1片 (35g)', baseWeightGrams: 35, category: 'staple' },
+  { id: 'f-potato', name: '馬鈴薯 (蒸烤/100g)', calories: 77, protein: 2, carbs: 17.5, fat: 0.1, servingSize: '100g', baseWeightGrams: 100, category: 'staple' },
+  { id: 'f-bean-noodles', name: '冬粉 / 寬粉 (熟重130g)', calories: 140, protein: 0.3, carbs: 34.5, fat: 0.1, servingSize: '1份 (熟重130g)', baseWeightGrams: 130, category: 'staple' },
+
+  // 4. 新鮮水果類 (Fruits - 天然快碳、果糖與維生素)
+  { id: 'f-banana', name: '香蕉 (1根/118g)', calories: 105, protein: 1.3, carbs: 27, fat: 0.3, servingSize: '1根 (118g)', baseWeightGrams: 118, category: 'fruit' },
+  { id: 'f-guava', name: '芭樂 (半顆/160g)', calories: 60, protein: 1.1, carbs: 15.6, fat: 0.2, servingSize: '半顆 (160g)', baseWeightGrams: 160, category: 'fruit' },
+  { id: 'f-cherry-tomatoes', name: '小番茄 (1碗/150g)', calories: 45, protein: 1.5, carbs: 9.5, fat: 0.3, servingSize: '1碗 (150g)', baseWeightGrams: 150, category: 'fruit' },
+  { id: 'f-apple', name: '蘋果 (1顆/150g)', calories: 78, protein: 0.4, carbs: 20.8, fat: 0.3, servingSize: '1顆 (150g)', baseWeightGrams: 150, category: 'fruit' },
+  { id: 'f-kiwi', name: '奇異果 (1顆/100g)', calories: 56, protein: 1.1, carbs: 13.9, fat: 0.5, servingSize: '1顆 (100g)', baseWeightGrams: 100, category: 'fruit' },
+  { id: 'f-blueberries', name: '藍莓 (100g)', calories: 57, protein: 0.7, carbs: 14.5, fat: 0.3, servingSize: '100g', baseWeightGrams: 100, category: 'fruit' },
+  { id: 'f-dragon-fruit', name: '火龍果 (半顆/150g)', calories: 75, protein: 1.8, carbs: 16.5, fat: 0.5, servingSize: '半顆 (150g)', baseWeightGrams: 150, category: 'fruit' },
+  { id: 'f-pineapple', name: '鳳梨切片 (1碗/150g)', calories: 78, protein: 0.8, carbs: 19.5, fat: 0.2, servingSize: '1碗 (150g)', baseWeightGrams: 150, category: 'fruit' },
+  { id: 'f-papaya', name: '木瓜切塊 (1碗/150g)', calories: 58, protein: 0.8, carbs: 14.5, fat: 0.2, servingSize: '1碗 (150g)', baseWeightGrams: 150, category: 'fruit' },
+  { id: 'f-grapes', name: '葡萄 (10顆/100g)', calories: 65, protein: 0.6, carbs: 16.5, fat: 0.2, servingSize: '10顆 (100g)', baseWeightGrams: 100, category: 'fruit' },
+
+  // 5. 蔬菜與菇類高纖 (Vegetables & Mushrooms)
+  { id: 'f-cabbage', name: '高麗菜 (清炒/水煮/100g)', calories: 25, protein: 1.3, carbs: 5, fat: 0.2, servingSize: '1碗 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-sweet-potato-leaves', name: '地瓜葉 (清炒/水煮/100g)', calories: 28, protein: 3.2, carbs: 4, fat: 0.4, servingSize: '1碗 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-water-spinach', name: '空心菜 (清炒/水煮/100g)', calories: 22, protein: 2.5, carbs: 3.2, fat: 0.3, servingSize: '1碗 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-broccoli', name: '綠花椰菜 (100g)', calories: 34, protein: 2.8, carbs: 6.6, fat: 0.4, servingSize: '1碗 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-spinach', name: '菠菜 (清炒/水煮/100g)', calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4, servingSize: '100g', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-king-oyster-mushroom', name: '杏鮑菇 (100g)', calories: 35, protein: 3, carbs: 5.5, fat: 0.3, servingSize: '100g', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-enoki-mushroom', name: '金針菇 (100g)', calories: 37, protein: 2.7, carbs: 6, fat: 0.4, servingSize: '半包 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-cucumber', name: '小黃瓜 (1根/100g)', calories: 15, protein: 0.8, carbs: 3, fat: 0.1, servingSize: '1根 (100g)', baseWeightGrams: 100, category: 'veggie' },
+  { id: 'f-white-radish', name: '白蘿蔔 (100g)', calories: 16, protein: 0.7, carbs: 3.5, fat: 0.1, servingSize: '100g', baseWeightGrams: 100, category: 'veggie' },
+
+  // 6. 健康油脂與堅果種子 (Healthy Fats & Nuts)
+  { id: 'f-mixed-nuts', name: '綜合堅果 (1把/25g)', calories: 155, protein: 5, carbs: 5.5, fat: 13.5, servingSize: '1小把 (25g)', baseWeightGrams: 25, category: 'fat_nuts' },
+  { id: 'f-almonds', name: '杏仁堅果 (1把/15g)', calories: 90, protein: 3.1, carbs: 3.2, fat: 7.8, servingSize: '15g', baseWeightGrams: 15, category: 'fat_nuts' },
+  { id: 'f-avocado', name: '酪梨 (50g)', calories: 80, protein: 1, carbs: 4.2, fat: 7.3, servingSize: '50g', baseWeightGrams: 50, category: 'fat_nuts' },
+  { id: 'f-olive-oil', name: '橄欖油 (1湯匙/15ml)', calories: 124, protein: 0, carbs: 0, fat: 14, servingSize: '1湯匙 (15ml)', baseWeightGrams: 15, category: 'fat_nuts' },
+  { id: 'f-peanut-butter', name: '純花生醬 (無糖/1湯匙15g)', calories: 94, protein: 3.8, carbs: 3.2, fat: 7.8, servingSize: '1湯匙 (15g)', baseWeightGrams: 15, category: 'fat_nuts' },
+  { id: 'f-black-sesame-powder', name: '黑芝麻粉 (無糖/1湯匙10g)', calories: 58, protein: 1.8, carbs: 1.5, fat: 5.2, servingSize: '1湯匙 (10g)', baseWeightGrams: 10, category: 'fat_nuts' },
+
+  // 7. 乳清蛋白與運動補劑 (Supplements & Whey)
+  { id: 'f-on-gold-double-chocolate', name: 'ON 金標乳清蛋白 (雙倍巧克力/1勺)', calories: 120, protein: 24, carbs: 3, fat: 1.5, servingSize: '1勺 (31g)', baseWeightGrams: 31, category: 'supplement' },
+  { id: 'f-whey-isolate', name: '分離乳清蛋白粉 (1匙/30g)', calories: 115, protein: 25, carbs: 1.5, fat: 0.8, servingSize: '1份 (30g)', baseWeightGrams: 30, category: 'supplement' },
+  { id: 'f-whey-concentrate', name: '濃縮乳清蛋白粉 (1匙/30g)', calories: 125, protein: 24, carbs: 3, fat: 1.8, servingSize: '1份 (30g)', baseWeightGrams: 30, category: 'supplement' },
+
+  // 8. 飲品與沖泡 (Beverages & Soups)
+  { id: 'f-black-coffee', name: '美式黑咖啡 (無糖/300ml)', calories: 5, protein: 0.3, carbs: 0.7, fat: 0.1, servingSize: '300ml', baseWeightGrams: 300, category: 'beverage' },
+  { id: 'f-unsweetened-green-tea', name: '無糖綠茶 (580ml)', calories: 0, protein: 0, carbs: 0, fat: 0, servingSize: '1瓶 (580ml)', baseWeightGrams: 580, category: 'beverage' },
+  { id: 'f-unsweetened-oolong', name: '無糖烏龍茶 (580ml)', calories: 0, protein: 0, carbs: 0, fat: 0, servingSize: '1瓶 (580ml)', baseWeightGrams: 580, category: 'beverage' },
+  { id: 'f-latte-unsweetened', name: '拿鐵咖啡 (無糖/360ml)', calories: 150, protein: 8, carbs: 11, fat: 8.5, servingSize: '中杯 (360ml)', baseWeightGrams: 360, category: 'beverage' },
+  { id: 'f-beef-broth', name: '牛肉清湯 (1碗/250ml)', calories: 45, protein: 4, carbs: 1.5, fat: 2.5, servingSize: '1碗 (250ml)', baseWeightGrams: 250, category: 'beverage' },
+
+  // 9. 其他點心與外食 (Other)
+  { id: 'f-protein-bar', name: '蛋白棒 (1根/45g)', calories: 180, protein: 15, carbs: 16, fat: 6, servingSize: '1根 (45g)', baseWeightGrams: 45, category: 'other' },
+  { id: 'f-dark-chocolate', name: '85%黑巧克力 (2片/15g)', calories: 90, protein: 1.5, carbs: 4.5, fat: 7.5, servingSize: '2片 (15g)', baseWeightGrams: 15, category: 'other' },
+  { id: 'f-nori-seaweed', name: '烤海苔 / 紫菜 (1包/5g)', calories: 18, protein: 1.2, carbs: 1.8, fat: 0.5, servingSize: '1包 (5g)', baseWeightGrams: 5, category: 'other' },
 ];
 
 export const INITIAL_USER_PROFILES: UserProfile[] = [

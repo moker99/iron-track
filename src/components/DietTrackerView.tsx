@@ -16,6 +16,7 @@ import {
   Clock,
   RefreshCw,
   Check,
+  Edit3,
 } from 'lucide-react';
 import type { CarbCyclingPhase, DietProtocol, FitnessGoal, FoodCategory, FoodItem, MealEntry, MealType, UserProfile, WeeklyTrainingHours } from '../types';
 import { StorageService } from '../services/storage';
@@ -37,12 +38,15 @@ const MEAL_TYPES: { type: MealType; label: string; icon: string; defaultTime: st
 
 const CATEGORY_NAMES: Record<FoodCategory | 'all', string> = {
   all: '全部食材',
-  meat: '肉類 / 海鮮',
-  staple: '主食 / 碳水',
-  egg_dairy: '蛋品 / 乳製品',
-  veggie: '蔬菜 / 纖維',
-  supplement: '乳清 / 補劑',
-  other: '健康油脂 / 其他',
+  staple: '主食碳水',
+  fruit: '新鮮水果',
+  meat: '肉類海鮮',
+  egg_dairy: '蛋豆乳品',
+  veggie: '蔬菜菇類',
+  fat_nuts: '油脂堅果',
+  supplement: '乳清補劑',
+  beverage: '飲品沖泡',
+  other: '其他點心',
 };
 
 export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
@@ -80,7 +84,25 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   const [customCarbs, setCustomCarbs] = useState<number>(0);
   const [customFat, setCustomFat] = useState<number>(0);
   const [customServingSize, setCustomServingSize] = useState('100g');
+  const [customCategory, setCustomCategory] = useState<FoodCategory>('meat');
   const [customIntakeGrams, setCustomIntakeGrams] = useState<number>(0);
+
+  // Edit Logged Meal Entry State
+  const [editingMealEntry, setEditingMealEntry] = useState<MealEntry | null>(null);
+  const [editFoodName, setEditFoodName] = useState('');
+  const [editMealType, setEditMealType] = useState<MealType>('breakfast');
+  const [editInputMode, setEditInputMode] = useState<'grams' | 'servings'>('grams');
+  const [editWeightGrams, setEditWeightGrams] = useState<number>(100);
+  const [editServings, setEditServings] = useState<number>(1);
+  const [editServingUnit, setEditServingUnit] = useState('100g');
+  const [editCalories, setEditCalories] = useState<number>(0);
+  const [editProtein, setEditProtein] = useState<number>(0);
+  const [editCarbs, setEditCarbs] = useState<number>(0);
+  const [editFat, setEditFat] = useState<number>(0);
+  const [editBaseFood, setEditBaseFood] = useState<FoodItem | null>(null);
+
+  // Edit Custom Food in Library State
+  const [editingCustomFood, setEditingCustomFood] = useState<FoodItem | null>(null);
 
   // 重新載入當日飲食
   const refreshMealLogs = (date: string) => {
@@ -314,7 +336,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
       fat: Number(customFat),
       servingSize: servingDesc,
       baseWeightGrams: baseGrams,
-      category: 'other',
+      category: customCategory,
       isCustom: true,
     };
 
@@ -347,6 +369,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
 
     // 重設自訂食物表單輸入項
     setCustomName('');
+    setCustomCategory('meat');
     setCustomCalories(0);
     setCustomProtein(0);
     setCustomCarbs(0);
@@ -358,6 +381,148 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   const handleDeleteMeal = (id: string) => {
     StorageService.deleteMealEntry(id);
     refreshMealLogs(selectedDate);
+  };
+
+  const handleOpenEditModal = (entry: MealEntry) => {
+    setEditingMealEntry(entry);
+    setEditFoodName(entry.foodName);
+    setEditMealType(entry.mealType);
+    const mode = entry.inputMode || (entry.weightGrams ? 'grams' : 'servings');
+    setEditInputMode(mode);
+    setEditWeightGrams(entry.weightGrams || 100);
+    setEditServings(entry.servings || 1);
+    setEditServingUnit(entry.servingUnit || '100g');
+    setEditCalories(entry.calories);
+    setEditProtein(entry.protein);
+    setEditCarbs(entry.carbs);
+    setEditFat(entry.fat);
+
+    // 匹配原始食材庫資料，以便在修改克數時自動換算三大元素
+    const matched = allFoods.find(
+      f => f.name.trim() === entry.foodName.trim() ||
+           entry.foodName.startsWith(f.name.split(' ')[0]) ||
+           f.name.startsWith(entry.foodName.split(' ')[0])
+    );
+    setEditBaseFood(matched || null);
+  };
+
+  const handleEditGramsChange = (newGrams: number) => {
+    setEditWeightGrams(newGrams);
+    if (newGrams <= 0) return;
+    if (editBaseFood) {
+      const base = editBaseFood.baseWeightGrams || 100;
+      const factor = newGrams / base;
+      setEditCalories(Math.round(editBaseFood.calories * factor));
+      setEditProtein(Math.round(editBaseFood.protein * factor * 10) / 10);
+      setEditCarbs(Math.round(editBaseFood.carbs * factor * 10) / 10);
+      setEditFat(Math.round(editBaseFood.fat * factor * 10) / 10);
+    } else if (editingMealEntry?.weightGrams && editingMealEntry.weightGrams > 0) {
+      const factor = newGrams / editingMealEntry.weightGrams;
+      setEditCalories(Math.round(editingMealEntry.calories * factor));
+      setEditProtein(Math.round(editingMealEntry.protein * factor * 10) / 10);
+      setEditCarbs(Math.round(editingMealEntry.carbs * factor * 10) / 10);
+      setEditFat(Math.round(editingMealEntry.fat * factor * 10) / 10);
+    }
+  };
+
+  const handleEditServingsChange = (newServings: number) => {
+    setEditServings(newServings);
+    if (newServings <= 0) return;
+    if (editBaseFood) {
+      setEditCalories(Math.round(editBaseFood.calories * newServings));
+      setEditProtein(Math.round(editBaseFood.protein * newServings * 10) / 10);
+      setEditCarbs(Math.round(editBaseFood.carbs * newServings * 10) / 10);
+      setEditFat(Math.round(editBaseFood.fat * newServings * 10) / 10);
+      if (editBaseFood.baseWeightGrams) {
+        setEditWeightGrams(Math.round(editBaseFood.baseWeightGrams * newServings));
+      }
+    } else if (editingMealEntry?.servings && editingMealEntry.servings > 0) {
+      const factor = newServings / editingMealEntry.servings;
+      setEditCalories(Math.round(editingMealEntry.calories * factor));
+      setEditProtein(Math.round(editingMealEntry.protein * factor * 10) / 10);
+      setEditCarbs(Math.round(editingMealEntry.carbs * factor * 10) / 10);
+      setEditFat(Math.round(editingMealEntry.fat * factor * 10) / 10);
+    }
+  };
+
+  const handleSaveEditedMeal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMealEntry) return;
+
+    const baseWeight = editBaseFood?.baseWeightGrams || 100;
+    const computedServings = editInputMode === 'grams'
+      ? Math.round((editWeightGrams / baseWeight) * 100) / 100
+      : Number(editServings);
+
+    const updated: MealEntry = {
+      ...editingMealEntry,
+      foodName: editFoodName.trim() || editingMealEntry.foodName,
+      mealType: editMealType,
+      inputMode: editInputMode,
+      weightGrams: editInputMode === 'grams' ? Number(editWeightGrams) : (editWeightGrams || undefined),
+      servings: computedServings,
+      servingUnit: editInputMode === 'grams' ? `${editWeightGrams}g` : (editServingUnit || '份'),
+      calories: Number(editCalories),
+      protein: Number(editProtein),
+      carbs: Number(editCarbs),
+      fat: Number(editFat),
+    };
+
+    StorageService.updateMealEntry(updated);
+    refreshMealLogs(selectedDate);
+    setEditingMealEntry(null);
+  };
+
+  // 開啟自訂食材編輯
+  const handleOpenEditCustomFood = (food: FoodItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCustomFood(food);
+    setCustomName(food.name);
+    setCustomCategory(food.category);
+    setCustomCalories(food.calories);
+    setCustomProtein(food.protein);
+    setCustomCarbs(food.carbs);
+    setCustomFat(food.fat);
+    setCustomServingSize(food.servingSize);
+    setCustomBaseGrams(food.baseWeightGrams || 100);
+    setCustomBasis(food.servingSize === '100g' ? 'per100g' : 'perServing');
+    setCustomIntakeGrams(0);
+    setActiveFoodTab('custom');
+  };
+
+  const handleSaveCustomFoodEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomFood || !customName.trim()) return;
+
+    const baseGrams = customBasis === 'per100g' ? 100 : Number(customBaseGrams || 100);
+    const servingDesc = customBasis === 'per100g' ? '100g' : (customServingSize.trim() || '1份');
+
+    const updatedFood: FoodItem = {
+      ...editingCustomFood,
+      name: customName.trim(),
+      calories: Number(customCalories),
+      protein: Number(customProtein),
+      carbs: Number(customCarbs),
+      fat: Number(customFat),
+      servingSize: servingDesc,
+      baseWeightGrams: baseGrams,
+      category: customCategory,
+      isCustom: true,
+    };
+
+    StorageService.updateCustomFood(updatedFood);
+    setAllFoods(StorageService.getAllFoods());
+    setEditingCustomFood(null);
+
+    // 重設表單輸入項
+    setCustomName('');
+    setCustomCategory('meat');
+    setCustomCalories(0);
+    setCustomProtein(0);
+    setCustomCarbs(0);
+    setCustomFat(0);
+    setCustomIntakeGrams(0);
+    setActiveFoodTab('preset');
   };
 
   return (
@@ -1117,10 +1282,18 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', marginRight: '0.15rem' }}>
                           {item.calories} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>kcal</span>
                         </span>
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
+                          title="編輯份量或營養素"
+                          onClick={() => handleOpenEditModal(item)}
+                          style={{ color: 'var(--neon-cyan)', background: 'rgba(0, 229, 255, 0.08)' }}
+                        >
+                          <Edit3 size={14} />
+                        </button>
                         <button
                           className="btn btn-ghost btn-icon btn-sm"
                           title="刪除"
@@ -1246,7 +1419,12 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                         }}
                       >
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{food.name}</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span>{food.name}</span>
+                            <span className="badge badge-gray" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+                              {CATEGORY_NAMES[food.category] || food.category}
+                            </span>
+                          </div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
                             每 {food.servingSize}: 蛋 {food.protein}g · 碳 {food.carbs}g · 脂 {food.fat}g
                             {food.baseWeightGrams && (
@@ -1256,8 +1434,21 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                             )}
                           </div>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--neon-green)' }}>
-                          {food.calories} kcal
+                        <div className="flex items-center gap-2">
+                          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--neon-green)' }}>
+                            {food.calories} kcal
+                          </div>
+                          {food.isCustom && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-icon btn-sm"
+                              title="編輯此自訂食材"
+                              style={{ padding: '0.2rem 0.35rem', color: 'var(--neon-cyan)', background: 'rgba(0, 229, 255, 0.08)' }}
+                              onClick={(e) => handleOpenEditCustomFood(food, e)}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1451,7 +1642,43 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                 </>
               ) : (
                 /* Custom Food Form with 100g / Grams benchmark support */
-                <form id="customFoodForm" onSubmit={handleAddCustomFood} className="flex flex-col gap-3">
+                <form id="customFoodForm" onSubmit={editingCustomFood ? handleSaveCustomFoodEdit : handleAddCustomFood} className="flex flex-col gap-3">
+                  {editingCustomFood && (
+                    <div style={{
+                      background: 'rgba(0, 229, 255, 0.08)',
+                      border: '1px solid rgba(0, 229, 255, 0.3)',
+                      borderRadius: '0.65rem',
+                      padding: '0.6rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.82rem',
+                    }}>
+                      <div className="flex items-center gap-2">
+                        <Edit3 size={15} style={{ color: 'var(--neon-cyan)' }} />
+                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                          正在編輯自訂食材：{editingCustomFood.name}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                        onClick={() => {
+                          setEditingCustomFood(null);
+                          setCustomName('');
+                          setCustomCalories(0);
+                          setCustomProtein(0);
+                          setCustomCarbs(0);
+                          setCustomFat(0);
+                          setCustomIntakeGrams(0);
+                        }}
+                      >
+                        取消編輯
+                      </button>
+                    </div>
+                  )}
+
                   {/* Custom Basis Mode */}
                   <div style={{
                     display: 'flex',
@@ -1488,11 +1715,30 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                       <input
                         type="text"
                         className="input"
-                        placeholder="例如: 媽媽自製滷牛肉、某牌燕麥棒"
+                        placeholder="例如: 富士蘋果、香蕉、煎牛排"
                         value={customName}
                         onChange={e => setCustomName(e.target.value)}
                         required
                       />
+                    </div>
+                    <div>
+                      <label className="label">食材分類</label>
+                      <select
+                        className="select"
+                        value={customCategory}
+                        onChange={e => setCustomCategory(e.target.value as FoodCategory)}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="staple">🍚 全穀雜糧 / 主食碳水</option>
+                        <option value="fruit">🍎 新鮮水果 (香蕉/蘋果/芭樂等)</option>
+                        <option value="meat">🥩 肉類 / 海鮮魚貝</option>
+                        <option value="egg_dairy">🥚 蛋品豆類 / 乳製品</option>
+                        <option value="veggie">🥦 蔬菜 / 菇類高纖</option>
+                        <option value="fat_nuts">🥑 健康油脂 / 堅果種子</option>
+                        <option value="supplement">🥤 乳清蛋白 / 運動補劑</option>
+                        <option value="beverage">☕ 飲品 / 咖啡沖泡</option>
+                        <option value="other">📦 其他 / 複合點心</option>
+                      </select>
                     </div>
                     <div>
                       <label className="label">
@@ -1501,7 +1747,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                       <input
                         type="text"
                         className="input"
-                        placeholder="例如: 100g 或 1包"
+                        placeholder="例如: 100g 或 1包/1顆"
                         value={customServingSize}
                         disabled={customBasis === 'per100g'}
                         onChange={e => setCustomServingSize(e.target.value)}
@@ -1636,10 +1882,302 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                 </button>
               ) : (
                 <button type="submit" form="customFoodForm" className="btn btn-primary">
-                  建立並加入
+                  {editingCustomFood ? '儲存自訂食材修改' : '建立並加入'}
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: 編輯已記錄餐點食物 ==================== */}
+      {editingMealEntry && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Edit3 size={18} style={{ color: 'var(--neon-cyan)' }} />
+                <h3 className="modal-title">編輯餐點記錄</h3>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setEditingMealEntry(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedMeal} className="modal-body flex flex-col gap-4">
+              {/* 食物名稱與所屬餐別 */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="label">食物名稱</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editFoodName}
+                    onChange={e => setEditFoodName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="label">所屬餐別</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                    {MEAL_TYPES.map(m => (
+                      <button
+                        key={m.type}
+                        type="button"
+                        className={`btn btn-sm ${editMealType === m.type ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.2rem' }}
+                        onClick={() => setEditMealType(m.type)}
+                      >
+                        {m.icon} {m.label.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 份量計算與輸入模式切換 */}
+              <div style={{
+                background: 'rgba(0, 229, 255, 0.05)',
+                border: '1px solid rgba(0, 229, 255, 0.2)',
+                borderRadius: '0.75rem',
+                padding: '0.85rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    份量調整
+                  </span>
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(12, 19, 34, 0.7)',
+                    padding: '0.15rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border-color)',
+                    gap: '0.2rem'
+                  }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${editInputMode === 'grams' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
+                      onClick={() => setEditInputMode('grams')}
+                    >
+                      ⚖️ 依公克 (g) 秤重
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${editInputMode === 'servings' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
+                      onClick={() => setEditInputMode('servings')}
+                    >
+                      📦 依份數輸入
+                    </button>
+                  </div>
+                </div>
+
+                {editInputMode === 'grams' ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>實際吃下重量：</label>
+                      <div className="flex items-center gap-2">
+                        <NumberInput
+                          step="1"
+                          min={1}
+                          max={5000}
+                          className="input"
+                          style={{ width: '100px', textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', padding: '0.35rem' }}
+                          value={editWeightGrams}
+                          placeholder="0"
+                          onChange={handleEditGramsChange}
+                        />
+                        <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>g</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Grams Chips */}
+                    <div className="flex gap-1.5 flex-wrap items-center">
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>微調:</span>
+                      {[-50, -10, 10, 50].map(delta => (
+                        <button
+                          key={delta}
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
+                          onClick={() => handleEditGramsChange(Math.max(1, editWeightGrams + delta))}
+                        >
+                          {delta > 0 ? `+${delta}g` : `${delta}g`}
+                        </button>
+                      ))}
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginLeft: '0.25rem' }}>設定:</span>
+                      {[50, 100, 150, 200, 300].map(grams => (
+                        <button
+                          key={grams}
+                          type="button"
+                          className={`btn btn-sm ${editWeightGrams === grams ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem' }}
+                          onClick={() => handleEditGramsChange(grams)}
+                        >
+                          {grams}g
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        份量倍數 ({editServingUnit || '份'}):
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <NumberInput
+                          step="0.1"
+                          min={0.1}
+                          max={50}
+                          className="input"
+                          style={{ width: '100px', textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', padding: '0.35rem' }}
+                          value={editServings}
+                          placeholder="1"
+                          onChange={handleEditServingsChange}
+                        />
+                        <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>份</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Servings Chips */}
+                    <div className="flex gap-1.5 flex-wrap items-center">
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>快速設定:</span>
+                      {[0.5, 1, 1.5, 2, 3].map(serv => (
+                        <button
+                          key={serv}
+                          type="button"
+                          className={`btn btn-sm ${editServings === serv ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}
+                          onClick={() => handleEditServingsChange(serv)}
+                        >
+                          {serv} 份
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 三大元素與熱量（支援自動連動與手動微調） */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    三大營養素與熱量 (可直接微調)
+                  </span>
+                  {editBaseFood && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--neon-green)' }}>
+                      💡 已依照食材比例自動換算
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.72rem', color: 'var(--neon-green)' }}>熱量 (kcal)</label>
+                    <NumberInput
+                      step="1"
+                      className="input"
+                      value={editCalories}
+                      min={0}
+                      placeholder="0"
+                      onChange={setEditCalories}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.72rem', color: 'var(--neon-emerald)' }}>蛋白質 (g)</label>
+                    <NumberInput
+                      step="0.1"
+                      className="input"
+                      value={editProtein}
+                      min={0}
+                      placeholder="0"
+                      onChange={setEditProtein}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.72rem', color: 'var(--neon-cyan)' }}>碳水 (g)</label>
+                    <NumberInput
+                      step="0.1"
+                      className="input"
+                      value={editCarbs}
+                      min={0}
+                      placeholder="0"
+                      onChange={setEditCarbs}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.72rem', color: 'var(--neon-amber)' }}>脂肪 (g)</label>
+                    <NumberInput
+                      step="0.1"
+                      className="input"
+                      value={editFat}
+                      min={0}
+                      placeholder="0"
+                      onChange={setEditFat}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-dim)',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: '0.4rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span>公式驗證 (P×4 + C×4 + F×9):</span>
+                  <strong style={{ color: 'var(--text-main)' }}>
+                    {Math.round((editProtein * 4) + (editCarbs * 4) + (editFat * 9))} kcal
+                  </strong>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer flex items-center justify-between" style={{ padding: '0.75rem 0 0', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--neon-rose)' }}
+                  onClick={() => {
+                    handleDeleteMeal(editingMealEntry.id);
+                    setEditingMealEntry(null);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  <span>刪除此項</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setEditingMealEntry(null)}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Check size={14} />
+                    <span>儲存修改</span>
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

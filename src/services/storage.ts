@@ -218,6 +218,17 @@ export class StorageService {
     SupabaseSyncService.pushMealEntry(normalizedEntry);
   }
 
+  static updateMealEntry(entry: MealEntry): void {
+    const normalizedEntry: MealEntry = {
+      ...entry,
+      userId: entry.userId === 'user-shawn-admin' ? 'user-shawn' : entry.userId,
+    };
+    const all = this.getMealLogs().map(m => m.id === entry.id ? normalizedEntry : m);
+    localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.pushMealEntry(normalizedEntry);
+  }
+
   static deleteMealEntry(id: string): void {
     const all = this.getMealLogs().filter(m => m.id !== id);
     localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
@@ -342,6 +353,30 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(customList));
       // 雲端即時同步 (標記建立者)
       SupabaseSyncService.pushCustomFood(food, this.getActiveProfileId());
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  static updateCustomFood(food: FoodItem): void {
+    try {
+      const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS);
+      const customList: FoodItem[] = custom ? JSON.parse(custom) : [];
+      const updatedList = customList.map(f => f.id === food.id ? food : f);
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(updatedList));
+      // 雲端即時同步
+      SupabaseSyncService.pushCustomFood(food, this.getActiveProfileId());
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  static deleteCustomFood(foodId: string): void {
+    try {
+      const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS);
+      const customList: FoodItem[] = custom ? JSON.parse(custom) : [];
+      const updatedList = customList.filter(f => f.id !== foodId);
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(updatedList));
     } catch (e) {
       console.error(e);
     }
