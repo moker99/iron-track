@@ -17,6 +17,7 @@ interface DashboardViewProps {
   activeProfile: UserProfile;
   profiles?: UserProfile[];
   onSelectProfile?: (id: string) => void;
+  onRequestSwitchProfile?: (target: UserProfile) => void;
   onNavigate: (tab: 'workout' | 'diet' | 'analytics') => void;
   onOpenProfileEdit: () => void;
   onStartRestTimer: (seconds: number) => void;
@@ -26,6 +27,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   activeProfile,
   profiles = [],
   onSelectProfile,
+  onRequestSwitchProfile,
   onNavigate,
   onOpenProfileEdit,
   onStartRestTimer,
@@ -508,14 +510,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
 
                     {/* Action button */}
-                    {!isCurrent && onSelectProfile && (
+                    {!isCurrent && (onRequestSwitchProfile || onSelectProfile) && (
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
                         style={{ fontSize: '0.8rem' }}
-                        onClick={() => onSelectProfile(member.id)}
+                        onClick={() => {
+                          if (onRequestSwitchProfile) {
+                            onRequestSwitchProfile(member);
+                          } else if (onSelectProfile) {
+                            onSelectProfile(member.id);
+                          }
+                        }}
                       >
-                        切換檢視日誌
+                        切換至此成員
                       </button>
                     )}
                   </div>

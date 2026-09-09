@@ -32,6 +32,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<FitnessGoal>(profile?.goal || 'maintain');
   const [role, setRole] = useState<'admin' | 'member'>(profile?.role || 'member');
+  const [pinCode, setPinCode] = useState<string>(profile?.pinCode || (role === 'admin' ? '8888' : '1234'));
 
   const [useCustomMacros, setUseCustomMacros] = useState<boolean>(Boolean(profile?.customCalories));
   const [customCalories, setCustomCalories] = useState<number>(profile?.customCalories || 2400);
@@ -77,6 +78,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       activityLevel,
       goal,
       role,
+      pinCode: pinCode.trim() || (role === 'admin' ? '8888' : '1234'),
       customCalories: useCustomMacros ? Number(customCalories) : autoTargetCals,
       customProteinGrams: useCustomMacros ? Number(customProtein) : recommendedMacros.proteinGrams,
       customCarbsGrams: useCustomMacros ? Number(customCarbs) : recommendedMacros.carbsGrams,
@@ -93,8 +95,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       <div className="modal-content" style={{ maxWidth: '640px' }}>
         <div className="modal-header">
           <div className="flex items-center gap-2">
-            <User className="logo-accent" size={20} />
-            <h2 className="modal-title">{profile ? '編輯個人健康檔案' : '建立新使用者檔案'}</h2>
+            <User size={20} className="logo-accent" />
+            <h3 className="modal-title">{profile ? '編輯成員資料' : '新增團隊成員'}</h3>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}>
             <X size={18} />
@@ -104,28 +106,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <form onSubmit={handleSave}>
           <div className="modal-body flex flex-col gap-4">
             {/* Avatar & Name */}
-            <div className="grid-cols-2 grid-responsive-2 gap-4">
-              <div>
-                <label className="label">使用者暱稱</label>
+            <div className="flex gap-4 items-center">
+              <div style={{ textAlign: 'center' }}>
+                <label className="label">代表頭像</label>
+                <div style={{
+                  fontSize: '2.5rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '1rem',
+                  width: '64px',
+                  height: '64px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {avatar}
+                </div>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label className="label">成員稱呼 / 姓名</label>
                 <input
                   type="text"
                   className="input"
-                  placeholder="例如: Shawn, 健身阿強"
+                  placeholder="例如: Shawn、Alex、小明"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
                 />
-              </div>
 
-              <div>
-                <label className="label">頭像圖標</label>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex gap-1 flex-wrap" style={{ marginTop: '0.5rem' }}>
                   {AVATAR_OPTIONS.map(emoji => (
                     <button
                       key={emoji}
                       type="button"
                       style={{
-                        fontSize: '1.25rem',
+                        fontSize: '1.1rem',
                         padding: '0.2rem 0.4rem',
                         borderRadius: '0.4rem',
                         background: avatar === emoji ? 'rgba(0, 245, 155, 0.2)' : 'rgba(255, 255, 255, 0.05)',
@@ -169,8 +185,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
               <div style={{ fontSize: '0.73rem', color: 'var(--text-dim)', marginTop: '0.35rem' }}>
                 {role === 'admin'
-                  ? '👑 管理員特權：可在首頁查看 5 人全體團隊看板，並隨時切換查閱每位成員之飲食日誌與運動記錄'
-                  : '🛡️ 一般成員：專注於記錄與查看自己個人的訓練課表與三大營養素目標'}
+                  ? '👑 管理員特權：可新增與管理所有成員、查閱 5 人全體日誌，並可設定雲端資料庫'
+                  : '🛡️ 一般成員：專注於記錄自己的課表與飲食，無法新增其他成員或進入雲端後台'}
+              </div>
+            </div>
+
+            {/* PIN Code Setting */}
+            <div style={{
+              background: 'rgba(18, 26, 43, 0.7)',
+              padding: '0.85rem',
+              borderRadius: '0.75rem',
+              border: '1px solid var(--border-color)',
+            }}>
+              <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                <label className="label" style={{ marginBottom: 0 }}>
+                  🔑 個人登入 PIN 碼 (4~6 碼純數字)
+                </label>
+                <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>
+                  {role === 'admin' ? 'Admin 預設 8888' : '隊員預設 1234'}
+                </span>
+              </div>
+              <input
+                type="text"
+                maxLength={6}
+                className="input"
+                placeholder={role === 'admin' ? '8888' : '1234'}
+                value={pinCode}
+                onChange={e => setPinCode(e.target.value.replace(/\D/g, ''))}
+                required
+              />
+              <div style={{ fontSize: '0.73rem', color: 'var(--text-dim)', marginTop: '0.35rem' }}>
+                {role === 'admin'
+                  ? '隊長管理員通行密碼，任何裝置欲切換至 Admin 均需輸入此 PIN 碼。'
+                  : '此成員的手機登入密碼，隊員初次於自己手機登入時使用。'}
               </div>
             </div>
 

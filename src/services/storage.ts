@@ -24,6 +24,7 @@ import {
 export const STORAGE_KEYS = {
   PROFILES: 'irontrack_profiles',
   ACTIVE_PROFILE_ID: 'irontrack_active_profile_id',
+  AUTH_PROFILE_ID: 'irontrack_auth_profile_id',
   MEAL_LOGS: 'irontrack_meal_logs',
   WORKOUT_SESSIONS: 'irontrack_workout_sessions',
   CUSTOM_EXERCISES: 'irontrack_custom_exercises',
@@ -33,6 +34,28 @@ export const STORAGE_KEYS = {
 };
 
 export class StorageService {
+  // ==================== 認證與登入狀態管理 ====================
+  static getAuthenticatedProfileId(): string | null {
+    return localStorage.getItem(STORAGE_KEYS.AUTH_PROFILE_ID);
+  }
+
+  static setAuthenticatedProfileId(id: string | null): void {
+    if (id) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_PROFILE_ID, id);
+      this.setActiveProfileId(id);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_PROFILE_ID);
+    }
+  }
+
+  static verifyPin(profileId: string, pin: string): boolean {
+    const profiles = this.getProfiles();
+    const target = profiles.find(p => p.id === profileId);
+    if (!target) return false;
+    const expectedPin = target.pinCode || (target.role === 'admin' ? '8888' : '1234');
+    return pin.trim() === expectedPin.trim();
+  }
+
   // ==================== 多使用者 (Profiles) 管理 ====================
   static getProfiles(): UserProfile[] {
     try {
@@ -41,17 +64,26 @@ export class StorageService {
         localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_USER_PROFILES));
         return INITIAL_USER_PROFILES;
       }
-      return JSON.parse(data);
+      const parsed: UserProfile[] = JSON.parse(data);
+      // 若本機殘留過去的舊測試資料 (user-default-2 等)，自動重設為只有 Shawn 的全新狀態
+      if (parsed.some(p => p.id === 'user-default-2' || p.id === 'user-default-1')) {
+        localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_USER_PROFILES));
+        this.setActiveProfileId('user-shawn-admin');
+        return INITIAL_USER_PROFILES;
+      }
+      return parsed;
     } catch {
       return INITIAL_USER_PROFILES;
     }
   }
 
   static getActiveProfileId(): string {
+    const authId = this.getAuthenticatedProfileId();
+    if (authId) return authId;
     const id = localStorage.getItem(STORAGE_KEYS.ACTIVE_PROFILE_ID);
     if (id) return id;
     const profiles = this.getProfiles();
-    const defaultId = profiles[0]?.id || 'user-default-1';
+    const defaultId = profiles[0]?.id || 'user-shawn-admin';
     localStorage.setItem(STORAGE_KEYS.ACTIVE_PROFILE_ID, defaultId);
     return defaultId;
   }

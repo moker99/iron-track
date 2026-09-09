@@ -14,6 +14,7 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   goal: FitnessGoal;
   role?: UserRole;
+  pinCode?: string;
   customCalories?: number;
   customProteinGrams?: number;
   customCarbsGrams?: number;

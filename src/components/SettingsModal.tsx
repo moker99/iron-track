@@ -21,8 +21,10 @@ import { SUPABASE_SQL_SCHEMA, testSupabaseConnection } from '../services/supabas
 interface SettingsModalProps {
   onClose: () => void;
   profiles: UserProfile[];
+  activeProfile: UserProfile;
   activeProfileId: string;
   onSelectProfile: (id: string) => void;
+  onRequestSwitchProfile?: (target: UserProfile) => void;
   onEditProfile: (profile: UserProfile) => void;
   onAddNewProfile: () => void;
   onReloadAllData: () => void;
@@ -33,14 +35,17 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   profiles,
+  activeProfile,
   activeProfileId,
   onSelectProfile,
+  onRequestSwitchProfile,
   onEditProfile,
   onAddNewProfile,
   onReloadAllData,
   onManualSync,
   onCloudStatusChange,
 }) => {
+  const isAdmin = activeProfile.role === 'admin';
   const [activeTab, setActiveTab] = useState<'users' | 'cloud' | 'backup' | 'guide'>('users');
   
   // Cloud settings state
@@ -265,21 +270,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>本機多成員檔案庫</h3>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>團隊成員名冊</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     每位成員擁有完全獨立的訓練課表、日誌、TDEE 與飲食記錄，切換零延遲。
                   </p>
                 </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    onClose();
-                    onAddNewProfile();
-                  }}
-                >
-                  <Plus size={15} />
-                  <span>新增成員</span>
-                </button>
+                {isAdmin ? (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      onClose();
+                      onAddNewProfile();
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>新增成員 (管理員)</span>
+                  </button>
+                ) : (
+                  <span className="badge badge-purple" style={{ fontSize: '0.75rem' }}>
+                    🔒 僅管理員 Shawn 可新增成員
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -299,6 +310,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{p.name}</span>
+                          {p.role === 'admin' && (
+                            <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>Admin</span>
+                          )}
                           {p.id === activeProfileId && (
                             <span className="badge badge-green">當前使用中</span>
                           )}
@@ -313,25 +327,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {p.id !== activeProfileId && (
                         <button
                           className="btn btn-outline btn-sm"
-                          onClick={() => onSelectProfile(p.id)}
+                          onClick={() => {
+                            onClose();
+                            if (onRequestSwitchProfile) {
+                              onRequestSwitchProfile(p);
+                            } else {
+                              onSelectProfile(p.id);
+                            }
+                          }}
                         >
                           切換至此
                         </button>
                       )}
-                      <button
-                        className="btn btn-secondary btn-icon btn-sm"
-                        title="編輯資料"
-                        onClick={() => {
-                          onClose();
-                          onEditProfile(p);
-                        }}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      {profiles.length > 1 && (
+                      {(isAdmin || p.id === activeProfileId) && (
+                        <button
+                          className="btn btn-secondary btn-icon btn-sm"
+                          title="編輯資料"
+                          onClick={() => {
+                            onClose();
+                            onEditProfile(p);
+                          }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                      {isAdmin && profiles.length > 1 && (
                         <button
                           className="btn btn-danger btn-icon btn-sm"
-                          title="刪除成員"
+                          title="刪除成員 (管理員權限)"
                           onClick={() => handleDeleteProfile(p.id, p.name)}
                         >
                           <Trash2 size={14} />
@@ -347,6 +370,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 2: Supabase 免費雲端後端 */}
           {activeTab === 'cloud' && (
             <div className="flex flex-col gap-4">
+              {!isAdmin && (
+                <div style={{
+                  background: 'rgba(168, 85, 247, 0.08)',
+                  border: '1px solid rgba(168, 85, 247, 0.25)',
+                  borderRadius: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.82rem',
+                  color: 'var(--neon-purple)',
+                }}>
+                  🔒 雲端資料庫由隊長 Shawn 統一設定維護，一般成員無需輸入金鑰即可自動同步個人數據。
+                </div>
+              )}
               <div style={{
                 background: 'rgba(6, 182, 212, 0.08)',
                 border: '1px solid rgba(6, 182, 212, 0.25)',

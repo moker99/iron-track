@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dumbbell, Utensils, LayoutDashboard, LineChart, Settings, Plus, ChevronDown, Check, RefreshCw, CloudOff } from 'lucide-react';
+import { Dumbbell, Utensils, LayoutDashboard, LineChart, Settings, Plus, ChevronDown, Check, RefreshCw, CloudOff, Lock } from 'lucide-react';
 import type { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -8,6 +8,8 @@ interface NavbarProps {
   profiles: UserProfile[];
   activeProfile: UserProfile;
   onSelectProfile: (id: string) => void;
+  onRequestSwitchProfile?: (target: UserProfile) => void;
+  onLockDevice?: () => void;
   onOpenNewProfile: () => void;
   onOpenSettings: () => void;
   isCloudConnected: boolean;
@@ -21,6 +23,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   profiles,
   activeProfile,
   onSelectProfile,
+  onRequestSwitchProfile,
+  onLockDevice,
   onOpenNewProfile,
   onOpenSettings,
   isCloudConnected,
@@ -182,8 +186,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                           fontFamily: 'inherit',
                         }}
                         onClick={() => {
-                          onSelectProfile(p.id);
                           setDropdownOpen(false);
+                          if (p.id === activeProfile.id) return;
+                          if (onRequestSwitchProfile) {
+                            onRequestSwitchProfile(p);
+                          } else {
+                            onSelectProfile(p.id);
+                          }
                         }}
                       >
                         <div className="flex items-center gap-2">
@@ -201,29 +210,59 @@ export const Navbar: React.FC<NavbarProps> = ({
                     
                     <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.35rem 0' }} />
 
-                    <button
-                      className="flex items-center gap-2"
-                      style={{
-                        width: '100%',
-                        padding: '0.45rem 0.6rem',
-                        background: 'transparent',
-                        color: 'var(--neon-green)',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem',
-                        textAlign: 'left',
-                        fontFamily: 'inherit',
-                        fontWeight: 600
-                      }}
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        onOpenNewProfile();
-                      }}
-                    >
-                      <Plus size={15} />
-                      <span>新增成員檔案</span>
-                    </button>
+                    {/* 只有管理員 Shawn 可以新增成員 */}
+                    {activeProfile.role === 'admin' && (
+                      <button
+                        className="flex items-center gap-2"
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.6rem',
+                          background: 'transparent',
+                          color: 'var(--neon-green)',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          textAlign: 'left',
+                          fontFamily: 'inherit',
+                          fontWeight: 600
+                        }}
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          onOpenNewProfile();
+                        }}
+                      >
+                        <Plus size={15} />
+                        <span>新增成員檔案 (管理員)</span>
+                      </button>
+                    )}
+
+                    {/* 鎖定此裝置 / 切換帳號 */}
+                    {onLockDevice && (
+                      <button
+                        className="flex items-center gap-2"
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.6rem',
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          textAlign: 'left',
+                          fontFamily: 'inherit',
+                          marginTop: '0.2rem',
+                        }}
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          onLockDevice();
+                        }}
+                      >
+                        <Lock size={13} />
+                        <span>🔒 鎖定裝置 / 登出</span>
+                      </button>
+                    )}
                   </div>
                 </>
               )}
