@@ -25,6 +25,9 @@ export interface UserProfile {
   // 飲食計劃模式與參數
   dietProtocol?: DietProtocol;
   carbCyclingPhase?: CarbCyclingPhase;
+  tanBaselineCarbRatio?: number;    // 焚訣動態碳水基準 (建議 2.5 ~ 3.5 g/kg，預設 3.0)
+  tanBaselineProteinRatio?: number; // 焚訣動態蛋白基準 (建議 1.2 ~ 2.0 g/kg，預設 1.6)
+  tanBaselineFatRatio?: number;     // 焚訣動態脂肪基準 (建議 0.6 ~ 0.8 g/kg，預設 0.7)
   sprintStartDate?: string;       // 40天衝刺開始日期 (YYYY-MM-DD)
   sprintManualDay?: number;       // 40天衝刺手動指定天數 (1~40)
   weeklyTrainingHours?: WeeklyTrainingHours; // 3個月動態版：每週訓練小時數 ('2-3' | '4-5' | '6-7' | '8-9')

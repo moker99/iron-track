@@ -99,6 +99,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   const [currentPhase, setCurrentPhase] = useState<CarbCyclingPhase>(activeProfile.carbCyclingPhase || 'baseline');
   const [currentSprintDay, setCurrentSprintDay] = useState<number>(activeProfile.sprintManualDay || 1);
   const [currentTrainingHours, setCurrentTrainingHours] = useState<WeeklyTrainingHours>(activeProfile.weeklyTrainingHours || '4-5');
+  const [tanBaselineCarb, setTanBaselineCarb] = useState<number>(activeProfile.tanBaselineCarbRatio ?? 3.0);
+  const [tanBaselineProtein, setTanBaselineProtein] = useState<number>(activeProfile.tanBaselineProteinRatio ?? 1.6);
+  const [tanBaselineFat, setTanBaselineFat] = useState<number>(activeProfile.tanBaselineFatRatio ?? 0.7);
   const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
   const [isSprintTableModalOpen, setIsSprintTableModalOpen] = useState<boolean>(false);
   const [isThreeMonthsModalOpen, setIsThreeMonthsModalOpen] = useState<boolean>(false);
@@ -108,6 +111,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     if (activeProfile.carbCyclingPhase) setCurrentPhase(activeProfile.carbCyclingPhase);
     if (activeProfile.sprintManualDay) setCurrentSprintDay(activeProfile.sprintManualDay);
     if (activeProfile.weeklyTrainingHours) setCurrentTrainingHours(activeProfile.weeklyTrainingHours);
+    if (activeProfile.tanBaselineCarbRatio !== undefined) setTanBaselineCarb(activeProfile.tanBaselineCarbRatio);
+    if (activeProfile.tanBaselineProteinRatio !== undefined) setTanBaselineProtein(activeProfile.tanBaselineProteinRatio);
+    if (activeProfile.tanBaselineFatRatio !== undefined) setTanBaselineFat(activeProfile.tanBaselineFatRatio);
   }, [activeProfile]);
 
   const handleProtocolChange = (newProtocol: DietProtocol) => {
@@ -152,6 +158,20 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     onUpdateProfile?.(updated);
   };
 
+  const handleTanRatiosChange = (c: number, p: number, f: number) => {
+    setTanBaselineCarb(c);
+    setTanBaselineProtein(p);
+    setTanBaselineFat(f);
+    const updated: UserProfile = {
+      ...activeProfile,
+      tanBaselineCarbRatio: c,
+      tanBaselineProteinRatio: p,
+      tanBaselineFatRatio: f,
+    };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
+  };
+
   // 當日訓練消耗
   const dayWorkouts = useMemo(() => {
     return StorageService.getWorkoutSessions(activeProfile.id).filter(w => w.date === selectedDate);
@@ -168,8 +188,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
       overridePhase: currentPhase,
       overrideSprintDay: currentSprintDay,
       overrideWeeklyTrainingHours: currentTrainingHours,
+      overrideTanRatios: {
+        carbRatio: tanBaselineCarb,
+        proteinRatio: tanBaselineProtein,
+        fatRatio: tanBaselineFat,
+      },
     });
-  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentTrainingHours]);
+  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentTrainingHours, tanBaselineCarb, tanBaselineProtein, tanBaselineFat]);
 
   // 當日總攝取統計
   const totals = useMemo(() => {
@@ -531,7 +556,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <div className="flex items-center gap-2">
               <Flame size={20} style={{ color: 'var(--neon-green)' }} />
               <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                🍚 譚成義 · 焚訣動態碳水循環
+                🍚 焚訣動態碳水循環
               </span>
               <span className="badge badge-green" style={{ fontSize: '0.75rem' }}>
                 {targets.carbCyclingInfo.phaseLabel}
@@ -557,14 +582,14 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           </div>
 
           {/* 3-Way Mode Switcher Buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.65rem' }}>
             <button
               type="button"
               className={`btn btn-sm ${currentPhase === 'baseline' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ justifyContent: 'center', padding: '0.55rem' }}
               onClick={() => handlePhaseChange('baseline')}
             >
-              🍚 基準平衡日 (3.0g/kg)
+              🍚 基準平衡日 ({tanBaselineCarb}g/kg)
             </button>
             <button
               type="button"
@@ -572,7 +597,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               style={{ justifyContent: 'center', padding: '0.55rem' }}
               onClick={() => handlePhaseChange('high_carb')}
             >
-              🚀 提高碳水 (+0.5倍, 降蛋白)
+              🚀 提高碳水 (+0.5 ➔ {(tanBaselineCarb + 0.5).toFixed(1)}g/kg)
             </button>
             <button
               type="button"
@@ -580,8 +605,89 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               style={{ justifyContent: 'center', padding: '0.55rem' }}
               onClick={() => handlePhaseChange('low_carb')}
             >
-              🛡️ 降低碳水/休息 (-0.5倍, 增蛋白)
+              🛡️ 降低碳水 (-0.5 ➔ {Math.max(1.5, tanBaselineCarb - 0.5).toFixed(1)}g/kg)
             </button>
+          </div>
+
+          {/* 個體化動態基準輸入面板 */}
+          <div style={{
+            marginBottom: '0.75rem',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(0, 245, 155, 0.25)',
+            borderRadius: '0.65rem',
+            padding: '0.75rem 0.85rem',
+          }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.35rem' }}>
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--neon-green)' }}>
+                  ⚙️ 焚訣個體化動態基準 (依身體感受手動微調)
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  (體重 {activeProfile.weightKg}kg 即時試算)
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                onClick={() => handleTanRatiosChange(3.0, 1.6, 0.7)}
+              >
+                恢復建議預設 (3.0 / 1.6 / 0.7)
+              </button>
+            </div>
+
+            <div className="grid-cols-3 grid-responsive-1 gap-3">
+              <div>
+                <label className="label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <span style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>碳水基準 (g/kg)</span>
+                  <span style={{ color: 'var(--text-muted)' }}>建議 2.5 ~ 3.5</span>
+                </label>
+                <NumberInput
+                  value={tanBaselineCarb}
+                  step={0.1}
+                  min={1.5}
+                  max={6.0}
+                  onChange={val => handleTanRatiosChange(val || 3.0, tanBaselineProtein, tanBaselineFat)}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                  ≈ <strong>{Math.round(activeProfile.weightKg * tanBaselineCarb)}g</strong> · 吃不下勿硬塞
+                </div>
+              </div>
+
+              <div>
+                <label className="label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <span style={{ color: 'var(--neon-emerald)', fontWeight: 700 }}>蛋白質基準 (g/kg)</span>
+                  <span style={{ color: 'var(--text-muted)' }}>建議 1.2 ~ 2.0</span>
+                </label>
+                <NumberInput
+                  value={tanBaselineProtein}
+                  step={0.1}
+                  min={0.8}
+                  max={3.0}
+                  onChange={val => handleTanRatiosChange(tanBaselineCarb, val || 1.6, tanBaselineFat)}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                  ≈ <strong>{Math.round(activeProfile.weightKg * tanBaselineProtein)}g</strong> · 放屁多臭則減少
+                </div>
+              </div>
+
+              <div>
+                <label className="label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                  <span style={{ color: 'var(--neon-amber)', fontWeight: 700 }}>健康脂肪基準 (g/kg)</span>
+                  <span style={{ color: 'var(--text-muted)' }}>建議 0.6 ~ 0.8</span>
+                </label>
+                <NumberInput
+                  value={tanBaselineFat}
+                  step={0.1}
+                  min={0.3}
+                  max={2.0}
+                  onChange={val => handleTanRatiosChange(tanBaselineCarb, tanBaselineProtein, val || 0.7)}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                  ≈ <strong>{Math.round(activeProfile.weightKg * tanBaselineFat)}g</strong> · 以優質 Omega-3+6 為主
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style={{
@@ -682,8 +788,8 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                 係數配比：
               </span>
               <span style={{ color: 'var(--text-main)', marginLeft: '0.3rem' }}>
-                碳水 <strong>{targets.threeMonthsInfo.carbRatio}</strong> g/kg · 
-                蛋白質 <strong>{targets.threeMonthsInfo.proteinRatio}</strong> g/kg · 
+                碳水 <strong>{targets.threeMonthsInfo.carbRatio}</strong> g/kg ·
+                蛋白質 <strong>{targets.threeMonthsInfo.proteinRatio}</strong> g/kg ·
                 脂肪 <strong>{targets.threeMonthsInfo.fatRatio}</strong> g/kg
               </span>
             </div>
@@ -995,8 +1101,8 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                           </span>
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
-                          蛋: <strong style={{ color: 'var(--neon-emerald)' }}>{item.protein}g</strong> · 
-                          碳: <strong style={{ color: 'var(--neon-cyan)' }}>{item.carbs}g</strong> · 
+                          蛋: <strong style={{ color: 'var(--neon-emerald)' }}>{item.protein}g</strong> ·
+                          碳: <strong style={{ color: 'var(--neon-cyan)' }}>{item.carbs}g</strong> ·
                           脂: <strong style={{ color: 'var(--neon-amber)' }}>{item.fat}g</strong>
                         </div>
                       </div>
@@ -1234,9 +1340,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                           <div className="flex items-center gap-2">
                             <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>每 100g 基準</span>
                             <span>
-                              熱量 <strong>{Math.round(per1gCal * 100)} kcal</strong> · 
-                              P: <strong style={{ color: 'var(--neon-emerald)' }}>{(per1gP * 100).toFixed(1)}g</strong> · 
-                              C: <strong style={{ color: 'var(--neon-cyan)' }}>{(per1gC * 100).toFixed(1)}g</strong> · 
+                              熱量 <strong>{Math.round(per1gCal * 100)} kcal</strong> ·
+                              P: <strong style={{ color: 'var(--neon-emerald)' }}>{(per1gP * 100).toFixed(1)}g</strong> ·
+                              C: <strong style={{ color: 'var(--neon-cyan)' }}>{(per1gC * 100).toFixed(1)}g</strong> ·
                               F: <strong style={{ color: 'var(--neon-amber)' }}>{(per1gF * 100).toFixed(1)}g</strong>
                             </span>
                           </div>
@@ -1467,9 +1573,9 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                     color: 'var(--text-muted)'
                   }}>
                     💡 自動換算每 1g 含有：
-                    <strong style={{ color: 'var(--text-main)' }}> {(customCalories / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)} kcal</strong> · 
-                    蛋 <strong style={{ color: 'var(--neon-emerald)' }}>{(customProtein / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)}g</strong> · 
-                    碳 <strong style={{ color: 'var(--neon-cyan)' }}>{(customCarbs / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)}g</strong> · 
+                    <strong style={{ color: 'var(--text-main)' }}> {(customCalories / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)} kcal</strong> ·
+                    蛋 <strong style={{ color: 'var(--neon-emerald)' }}>{(customProtein / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)}g</strong> ·
+                    碳 <strong style={{ color: 'var(--neon-cyan)' }}>{(customCarbs / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)}g</strong> ·
                     脂 <strong style={{ color: 'var(--neon-amber)' }}>{(customFat / (customBasis === 'per100g' ? 100 : (customBaseGrams || 100))).toFixed(2)}g</strong>
                   </div>
 
@@ -1806,7 +1912,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <div className="modal-header">
               <div className="flex items-center gap-2">
                 <BookOpen size={20} style={{ color: 'var(--neon-green)' }} />
-                <h3 className="modal-title">譚成義 · 焚訣《增肌減脂 & 補劑指南》</h3>
+                <h3 className="modal-title">焚訣《增肌減脂 & 補劑指南》</h3>
               </div>
               <button className="btn btn-ghost btn-icon" onClick={() => setIsKnowledgeModalOpen(false)}>
                 <X size={18} />
@@ -1974,7 +2080,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                       <span style={{ fontSize: '1.25rem' }}>🍚</span>
                       <div>
                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: targets.protocol === 'tan_carb_cycling' ? 'var(--neon-green)' : 'var(--text-main)' }}>
-                          譚成義 · 焚訣動態碳水循環法
+                          焚訣動態碳水循環法
                         </span>
                         <span className="badge badge-green" style={{ marginLeft: '0.5rem', fontSize: '0.68rem' }}>
                           增肌 / 體態重組首選

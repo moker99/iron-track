@@ -41,6 +41,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   // 飲食方案策略
   const [dietProtocol, setDietProtocol] = useState<DietProtocol>(profile?.dietProtocol || 'tan_carb_cycling');
   const [carbCyclingPhase, setCarbCyclingPhase] = useState<CarbCyclingPhase>(profile?.carbCyclingPhase || 'baseline');
+  const [tanBaselineCarb, setTanBaselineCarb] = useState<number>(profile?.tanBaselineCarbRatio ?? 3.0);
+  const [tanBaselineProtein, setTanBaselineProtein] = useState<number>(profile?.tanBaselineProteinRatio ?? 1.6);
+  const [tanBaselineFat, setTanBaselineFat] = useState<number>(profile?.tanBaselineFatRatio ?? 0.7);
   const [sprintStartDate, setSprintStartDate] = useState<string>(
     profile?.sprintStartDate || new Date().toISOString().split('T')[0]
   );
@@ -93,7 +96,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       };
     }
     if (dietProtocol === 'tan_carb_cycling') {
-      const cycle = getTanCarbCyclingConfig(carbCyclingPhase);
+      const cycle = getTanCarbCyclingConfig(carbCyclingPhase, {
+        carbRatio: tanBaselineCarb,
+        proteinRatio: tanBaselineProtein,
+        fatRatio: tanBaselineFat,
+      });
       const p = Math.round(weightKg * cycle.proteinRatio);
       const c = Math.round(weightKg * cycle.carbRatio);
       const f = Math.round(weightKg * cycle.fatRatio);
@@ -103,7 +110,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         protein: p,
         carbs: c,
         fat: f,
-        title: `譚成義 · 焚訣動態碳水循環 (${cycle.phaseLabel})`,
+        title: `焚訣動態碳水循環 (${cycle.phaseLabel})`,
         notes: `${cycle.mindsetAdvice} (${cycle.cardioAdvice})`,
         isHighCarb: carbCyclingPhase === 'high_carb',
       };
@@ -138,6 +145,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     dietProtocol,
     sprintManualDay,
     carbCyclingPhase,
+    tanBaselineCarb,
+    tanBaselineProtein,
+    tanBaselineFat,
     weeklyTrainingHours,
     gender,
     weightKg,
@@ -173,6 +183,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
       dietProtocol,
       carbCyclingPhase,
+      tanBaselineCarbRatio: tanBaselineCarb,
+      tanBaselineProteinRatio: tanBaselineProtein,
+      tanBaselineFatRatio: tanBaselineFat,
       sprintStartDate,
       sprintManualDay: Number(sprintManualDay),
       weeklyTrainingHours,
@@ -445,7 +458,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 >
                   <div className="flex items-center justify-between" style={{ width: '100%', marginBottom: '0.2rem' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.9rem', color: dietProtocol === 'tan_carb_cycling' ? 'var(--neon-green)' : 'var(--text-main)' }}>
-                      🍚 譚成義 · 焚訣動態碳水循環 (增肌 / 增肌減脂同步)
+                      🍚 焚訣動態碳水循環 (增肌 / 增肌減脂同步)
                     </span>
                     {dietProtocol === 'tan_carb_cycling' && <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>已選擇</span>}
                   </div>
@@ -571,16 +584,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               )}
 
               {dietProtocol === 'tan_carb_cycling' && (
-                <div style={{ marginTop: '0.85rem', background: 'rgba(0, 245, 155, 0.06)', border: '1px solid rgba(0, 245, 155, 0.2)', padding: '0.75rem', borderRadius: '0.6rem' }}>
+                <div style={{ marginTop: '0.85rem', background: 'rgba(0, 245, 155, 0.06)', border: '1px solid rgba(0, 245, 155, 0.2)', padding: '0.85rem', borderRadius: '0.75rem' }}>
                   <label className="label">預設初始日常狀態</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
                     <button
                       type="button"
                       className={`btn btn-sm ${carbCyclingPhase === 'baseline' ? 'btn-primary' : 'btn-secondary'}`}
                       style={{ fontSize: '0.75rem' }}
                       onClick={() => setCarbCyclingPhase('baseline')}
                     >
-                      🍚 基準日 (3.0g/kg)
+                      🍚 基準日 ({tanBaselineCarb}g/kg)
                     </button>
                     <button
                       type="button"
@@ -599,8 +612,79 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       🛡️ 休息低碳 (-0.5倍)
                     </button>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--neon-green)', marginTop: '0.4rem' }}>
-                    💡 提示：平時在「飲食追蹤」頁面可隨時一鍵無延遲切換當天狀態！
+
+                  {/* 自訂動態基準輸入 */}
+                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.65rem' }}>
+                    <div className="flex items-center justify-between" style={{ marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--neon-green)' }}>
+                        ⚙️ 焚訣個體化動態基準 (依個人感受與消化反應自訂)
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}
+                        onClick={() => {
+                          setTanBaselineCarb(3.0);
+                          setTanBaselineProtein(1.6);
+                          setTanBaselineFat(0.7);
+                        }}
+                      >
+                        恢復建議預設 (3.0 / 1.6 / 0.7)
+                      </button>
+                    </div>
+
+                    <div className="grid-cols-3 grid-responsive-1 gap-2.5">
+                      <div>
+                        <label className="label" style={{ fontSize: '0.72rem', marginBottom: '0.2rem' }}>
+                          碳水基準 (建議 2.5~3.5)
+                        </label>
+                        <NumberInput
+                          value={tanBaselineCarb}
+                          step={0.1}
+                          min={1.5}
+                          max={6.0}
+                          placeholder="3.0"
+                          onChange={val => setTanBaselineCarb(val || 3.0)}
+                        />
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                          吃不下勿硬塞，吸收差宜下調
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label" style={{ fontSize: '0.72rem', marginBottom: '0.2rem' }}>
+                          蛋白基準 (建議 1.2~2.0)
+                        </label>
+                        <NumberInput
+                          value={tanBaselineProtein}
+                          step={0.1}
+                          min={0.8}
+                          max={3.0}
+                          placeholder="1.6"
+                          onChange={val => setTanBaselineProtein(val || 1.6)}
+                        />
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                          身體反應調整，放屁多臭則減少
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label" style={{ fontSize: '0.72rem', marginBottom: '0.2rem' }}>
+                          脂肪基準 (建議 0.6~0.8)
+                        </label>
+                        <NumberInput
+                          value={tanBaselineFat}
+                          step={0.1}
+                          min={0.3}
+                          max={2.0}
+                          placeholder="0.7"
+                          onChange={val => setTanBaselineFat(val || 0.7)}
+                        />
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+                          以優質 Omega-3+6 為主
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -615,7 +699,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       {gender === 'female' ? '女性專屬係數' : '男性專屬係數'}
                     </span>
                   </div>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.6rem' }}>
                     {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => (
                       <button

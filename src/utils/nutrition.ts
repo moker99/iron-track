@@ -147,25 +147,49 @@ export function getSprint40DayConfig(day: number, gender: Gender): Sprint40DayCo
   };
 }
 
-// ==================== 2. 譚成義 · 焚訣動態碳水循環法 ====================
+// ==================== 2. 焚訣動態碳水循環法 ====================
+export const TAN_DEFAULT_RATIOS = {
+  carb: 3.0,
+  protein: 1.6,
+  fat: 0.7,
+  ranges: {
+    carb: { min: 2.5, max: 3.5, default: 3.0, label: '2.5 ~ 3.5 g/kg', advice: '吸收能力與訓練強度掛鉤，吃不下 = 身體不需要，切勿硬塞' },
+    protein: { min: 1.2, max: 2.0, default: 1.6, label: '1.2 ~ 2.0 g/kg', advice: '依身體反應調整，放屁多臭則減少' },
+    fat: { min: 0.6, max: 0.8, default: 0.7, label: '0.6 ~ 0.8 g/kg', advice: '以 Omega-3 + 6 優質油脂為主' },
+  },
+};
+
 export interface TanCarbCyclingConfig {
   phase: CarbCyclingPhase;
   phaseLabel: string;
   carbRatio: number;
   proteinRatio: number;
   fatRatio: number;
+  baseCarbRatio: number;
+  baseProteinRatio: number;
+  baseFatRatio: number;
   cardioAdvice: string;
   mindsetAdvice: string;
 }
 
-export function getTanCarbCyclingConfig(phase: CarbCyclingPhase = 'baseline'): TanCarbCyclingConfig {
+export function getTanCarbCyclingConfig(
+  phase: CarbCyclingPhase = 'baseline',
+  customBaseRatios?: { carbRatio?: number; proteinRatio?: number; fatRatio?: number }
+): TanCarbCyclingConfig {
+  const baseCarb = customBaseRatios?.carbRatio ?? TAN_DEFAULT_RATIOS.carb;
+  const baseProtein = customBaseRatios?.proteinRatio ?? TAN_DEFAULT_RATIOS.protein;
+  const baseFat = customBaseRatios?.fatRatio ?? TAN_DEFAULT_RATIOS.fat;
+
   if (phase === 'high_carb') {
     return {
       phase: 'high_carb',
       phaseLabel: '🚀 提高碳水日 (高強度訓練 / 渴望碳水)',
-      carbRatio: 3.5, // 提高碳水 +0.5倍
-      proteinRatio: 1.3, // 提高碳水降蛋白
-      fatRatio: 0.7,
+      carbRatio: Math.round((baseCarb + 0.5) * 10) / 10, // 提高碳水 +0.5倍
+      proteinRatio: Math.round(Math.max(1.0, baseProtein - 0.3) * 10) / 10, // 提高碳水降蛋白
+      fatRatio: baseFat,
+      baseCarbRatio: baseCarb,
+      baseProteinRatio: baseProtein,
+      baseFatRatio: baseFat,
       cardioAdvice: '訓練後可搭配 30 分鐘中低強度心肺整理，提升細胞粒線體合成。',
       mindsetAdvice: '渴望碳水是好的訊號！碳水集中於訓前與訓後加餐，充沛力量。',
     };
@@ -174,9 +198,12 @@ export function getTanCarbCyclingConfig(phase: CarbCyclingPhase = 'baseline'): T
     return {
       phase: 'low_carb',
       phaseLabel: '🛡️ 降低碳水日 (休息日 / 渴望低)',
-      carbRatio: 2.5, // 降低碳水 -0.5倍
-      proteinRatio: 1.9, // 降低碳水增蛋白
-      fatRatio: 0.7,
+      carbRatio: Math.round(Math.max(1.5, baseCarb - 0.5) * 10) / 10, // 降低碳水 -0.5倍
+      proteinRatio: Math.round((baseProtein + 0.3) * 10) / 10, // 降低碳水增蛋白
+      fatRatio: baseFat,
+      baseCarbRatio: baseCarb,
+      baseProteinRatio: baseProtein,
+      baseFatRatio: baseFat,
       cardioAdvice: '安排 30-40 分鐘中高強度有氧，動員脂肪酸氧化分解。',
       mindsetAdvice: '保持身體微微的飢餓感 ➔ 促進身體充分修復與深層抗炎。',
     };
@@ -185,9 +212,12 @@ export function getTanCarbCyclingConfig(phase: CarbCyclingPhase = 'baseline'): T
   return {
     phase: 'baseline',
     phaseLabel: '🍚 基準碳水平衡日 (中等強度/常規訓練)',
-    carbRatio: 3.0,
-    proteinRatio: 1.6,
-    fatRatio: 0.7,
+    carbRatio: baseCarb,
+    proteinRatio: baseProtein,
+    fatRatio: baseFat,
+    baseCarbRatio: baseCarb,
+    baseProteinRatio: baseProtein,
+    baseFatRatio: baseFat,
     cardioAdvice: '每週保持 3-4 次有氧，每次 30-40 分鐘中高強度。',
     mindsetAdvice: '吃得多 ≠ 狀態好，安排飲食看身體感受，充足睡眠保證合成代謝。',
   };
@@ -295,6 +325,7 @@ export function getUserNutritionTargets(
     overridePhase?: CarbCyclingPhase;
     overrideSprintDay?: number;
     overrideWeeklyTrainingHours?: WeeklyTrainingHours;
+    overrideTanRatios?: { carbRatio?: number; proteinRatio?: number; fatRatio?: number };
   }
 ) {
   const protocol: DietProtocol = user.dietProtocol || 'standard';
@@ -332,10 +363,15 @@ export function getUserNutritionTargets(
     };
   }
 
-  // 2. 方案二：譚成義 · 焚訣動態碳水循環
+  // 2. 方案二：焚訣動態碳水循環 (支援自訂動態基準輸入)
   if (protocol === 'tan_carb_cycling') {
     const phase = options?.overridePhase || user.carbCyclingPhase || 'baseline';
-    const cycle = getTanCarbCyclingConfig(phase);
+    const baseRatios = options?.overrideTanRatios || {
+      carbRatio: user.tanBaselineCarbRatio,
+      proteinRatio: user.tanBaselineProteinRatio,
+      fatRatio: user.tanBaselineFatRatio,
+    };
+    const cycle = getTanCarbCyclingConfig(phase, baseRatios);
     const targetProtein = Math.round(user.weightKg * cycle.proteinRatio);
     const targetCarbs = Math.round(user.weightKg * cycle.carbRatio);
     const targetFat = Math.round(user.weightKg * cycle.fatRatio);
