@@ -35,7 +35,7 @@ const CATEGORY_MAP: Record<ExerciseCategory | 'all', string> = {
   all: '全部動作',
   chest: '胸部 (Chest)',
   back: '背部 (Back)',
-  legs: '腿部 (Legs)',
+  legs: '臀腿 (Legs & Glutes)',
   shoulders: '肩部 (Shoulders)',
   arms: '手臂 (Arms)',
   core: '核心 (Core)',
@@ -1150,7 +1150,7 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   >
                     <option value="chest">胸部</option>
                     <option value="back">背部</option>
-                    <option value="legs">腿部</option>
+                    <option value="legs">臀腿</option>
                     <option value="shoulders">肩部</option>
                     <option value="arms">手臂</option>
                     <option value="core">核心</option>
