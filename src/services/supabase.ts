@@ -113,18 +113,19 @@ export class SupabaseSyncService {
     }
 
     try {
-      // 1. 同步 Profiles
+      // 1. 取得 Profiles：完全以 SQL 為準！SQL 有什麼就抓什麼，絕不自動新增或回推成員，只要確保有 admin 管理者即可
       const { data: cloudProfiles, error: profileErr } = await client
         .from('profiles')
         .select('*');
 
       if (!profileErr && cloudProfiles) {
         if (cloudProfiles.length === 0) {
-          // 雲端為空，自動 seed 本地預設的 5 位成員至雲端！
+          // 若 SQL 完全為空，才寫入預設的 Admin 管理者
           await this.seedInitialProfiles(client);
+          localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_USER_PROFILES));
         } else {
           const mappedProfiles: UserProfile[] = cloudProfiles.map((p: any) => ({
-            id: p.id,
+            id: p.id === 'user-shawn-admin' ? 'user-shawn' : p.id,
             name: p.name,
             avatar: p.avatar || '🏋️',
             gender: p.gender || 'male',
@@ -133,7 +134,7 @@ export class SupabaseSyncService {
             weightKg: Number(p.weight_kg) || 72,
             activityLevel: p.activity_level || 'moderate',
             goal: p.goal || 'maintain',
-            role: p.role || 'member',
+            role: p.role || (p.id === 'user-shawn' ? 'admin' : 'member'),
             password: p.password || p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
             pinCode: p.password || p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
             dietProtocol: p.diet_protocol || 'standard',
@@ -151,67 +152,31 @@ export class SupabaseSyncService {
             createdAt: p.created_at || new Date().toISOString(),
           }));
 
-          const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
-          const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
-          const profileMap = new Map<string, UserProfile>();
-
-          // 本地優先載入（先處理舊 ID 遷移）
-          localProfiles.forEach(p => {
-            const normalizedId = p.id === 'user-shawn-admin' ? 'user-shawn' : p.id;
-            profileMap.set(normalizedId, { ...p, id: normalizedId });
-          });
-
-          // 雲端資料合併（安全非破壞性合併，絕對不以雲端的 null/預設值抹除本地自訂的設定）
-          mappedProfiles.forEach(cp => {
-            const targetId = cp.id === 'user-shawn-admin' ? 'user-shawn' : cp.id;
-            const lp = profileMap.get(targetId);
-            if (!lp) {
-              profileMap.set(targetId, { ...cp, id: targetId });
-              return;
+          // 去重（依名稱防止重複）
+          const uniqueCloudProfiles: UserProfile[] = [];
+          const seen = new Set<string>();
+          for (const cp of mappedProfiles) {
+            const key = cp.name.trim().toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              uniqueCloudProfiles.push(cp);
             }
-            profileMap.set(targetId, {
-              ...lp,
-              id: targetId,
-              name: cp.name || lp.name,
-              avatar: cp.avatar || lp.avatar,
-              gender: cp.gender || lp.gender,
-              age: cp.age || lp.age,
-              heightCm: cp.heightCm || lp.heightCm,
-              weightKg: cp.weightKg || lp.weightKg,
-              activityLevel: cp.activityLevel || lp.activityLevel,
-              goal: cp.goal || lp.goal,
-              role: cp.role || lp.role,
-              password: cp.password || cp.pinCode || lp.password,
-              pinCode: cp.pinCode || cp.password || lp.pinCode || lp.password,
-              dietProtocol: (cp.dietProtocol && cp.dietProtocol !== 'standard') ? cp.dietProtocol : (lp.dietProtocol || cp.dietProtocol),
-              carbCyclingPhase: cp.carbCyclingPhase || lp.carbCyclingPhase,
-              weeklyTrainingHours: cp.weeklyTrainingHours || lp.weeklyTrainingHours,
-              sprintStartDate: cp.sprintStartDate || lp.sprintStartDate,
-              sprintManualDay: cp.sprintManualDay || lp.sprintManualDay,
-              threeMonthsStartDate: cp.threeMonthsStartDate || lp.threeMonthsStartDate,
-              threeMonthsManualWeek: cp.threeMonthsManualWeek || lp.threeMonthsManualWeek,
-              tanBaselineCarbRatio: lp.tanBaselineCarbRatio,
-              tanBaselineProteinRatio: lp.tanBaselineProteinRatio,
-              tanBaselineFatRatio: lp.tanBaselineFatRatio,
-              customCalories: cp.customCalories !== undefined ? cp.customCalories : lp.customCalories,
-              customProteinGrams: cp.customProteinGrams !== undefined ? cp.customProteinGrams : lp.customProteinGrams,
-              customCarbsGrams: cp.customCarbsGrams !== undefined ? cp.customCarbsGrams : lp.customCarbsGrams,
-              customFatGrams: cp.customFatGrams !== undefined ? cp.customFatGrams : lp.customFatGrams,
-              targetWeightKg: cp.targetWeightKg !== undefined ? cp.targetWeightKg : lp.targetWeightKg,
-            });
-            // 清除過期的 user-shawn-admin
-            if (targetId === 'user-shawn') {
-              profileMap.delete('user-shawn-admin');
-            }
-          });
-
-          // 若本地有雲端尚未擁有的 Profile，背景自動補推
-          const missingProfiles = Array.from(profileMap.values()).filter(lp => !mappedProfiles.some(cp => cp.id === lp.id));
-          for (const mp of missingProfiles) {
-            this.pushProfile(mp).catch(() => {});
           }
 
-          localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(Array.from(profileMap.values())));
+          // 只要確保有 admin 管理者就好
+          const hasAdmin = uniqueCloudProfiles.some(p => p.role === 'admin' || p.id === 'user-shawn');
+          if (!hasAdmin) {
+            uniqueCloudProfiles.unshift(INITIAL_USER_PROFILES[0]);
+          }
+
+          // 直接存入 localStorage 快取供前端使用，完全不回推、不新增任何成員至 SQL！
+          localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(uniqueCloudProfiles));
+
+          // 若當前選中的 Profile ID 已不存在，自動切換至第一位可用成員
+          const activeId = localStorage.getItem(STORAGE_KEYS.ACTIVE_PROFILE_ID);
+          if (!activeId || !uniqueCloudProfiles.some(p => p.id === activeId)) {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_PROFILE_ID, uniqueCloudProfiles[0]?.id || 'user-shawn');
+          }
         }
       }
 
@@ -599,6 +564,7 @@ export class SupabaseSyncService {
     const client = getSupabaseClient();
     if (!client) return;
     const targetUserId = routine.userId === 'user-shawn-admin' ? 'user-shawn' : routine.userId;
+    let finalUserId: string | null = targetUserId || null;
     try {
       // 確保關聯的 user profile 存在於雲端 (避免 23503 foreign key error)
       if (targetUserId) {
@@ -609,18 +575,13 @@ export class SupabaseSyncService {
           .maybeSingle();
 
         if (!profileCheck) {
-          const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
-          const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
-          const targetP = localProfiles.find(p => p.id === targetUserId || (targetUserId === 'user-shawn' && p.id === 'user-shawn-admin'));
-          if (targetP) {
-            await this.pushProfile(targetP);
-          }
+          finalUserId = null;
         }
       }
 
       const { error } = await client.from('routine_templates').upsert({
         id: routine.id,
-        user_id: targetUserId || null,
+        user_id: finalUserId,
         author_name: routine.authorName || null,
         title: routine.title,
         category: routine.category,

@@ -102,12 +102,6 @@ export class StorageService {
         }
         return p;
       });
-      // 若本機殘留過去的舊測試資料 (user-default-2 等)，自動重設為只有 Shawn 的全新狀態
-      if (normalized.some(p => p.id === 'user-default-2' || p.id === 'user-default-1')) {
-        localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_USER_PROFILES));
-        this.setActiveProfileId('user-shawn');
-        return INITIAL_USER_PROFILES;
-      }
       if (modified) {
         localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(normalized));
         if (localStorage.getItem(STORAGE_KEYS.ACTIVE_PROFILE_ID) === 'user-shawn-admin') {
