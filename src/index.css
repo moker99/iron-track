@@ -476,11 +476,13 @@ input[type="number"] {
     left: 0;
     right: 0;
     z-index: 50;
-    background: rgba(9, 13, 22, 0.94);
+    background: rgba(9, 13, 22, 0.96);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid var(--border-color);
-    padding: 0.4rem 0.5rem;
+    padding: 0.4rem 0.5rem max(0.5rem, env(safe-area-inset-bottom)) 0.5rem;
     justify-content: space-around;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
   }
   .mobile-nav-btn {
     display: flex;
@@ -497,9 +499,90 @@ input[type="number"] {
     border-radius: 0.5rem;
     font-family: inherit;
     transition: all 0.2s;
+    min-height: 44px;
+    justify-content: center;
   }
   .mobile-nav-btn.active {
     color: var(--neon-green);
+  }
+}
+
+/* Mobile Touch & Layout Optimizations (< 640px) */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 0.85rem 0.75rem calc(5.5rem + env(safe-area-inset-bottom)) 0.75rem !important;
+  }
+
+  .navbar-inner {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .logo-brand {
+    font-size: 1.15rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .glass-card {
+    padding: 1rem 0.85rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  /* 2-column grid for mobile stats instead of 4 giant stacked cards */
+  .mobile-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Training hours 2x2 grid for fingers */
+  .training-hours-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.45rem !important;
+  }
+
+  .training-hours-grid button {
+    padding: 0.55rem 0.35rem !important;
+    font-size: 0.78rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* Scrollable touch action pills */
+  .mobile-action-bar {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 0.4rem !important;
+    padding-bottom: 0.2rem !important;
+    scrollbar-width: none !important;
+  }
+  .mobile-action-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .mobile-action-bar .btn {
+    flex-shrink: 0 !important;
+    font-size: 0.78rem !important;
+    padding: 0.35rem 0.65rem !important;
+  }
+
+  .mobile-hide-text {
+    display: none !important;
+  }
+
+  .desktop-badge {
+    display: none !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .training-hours-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+  .mobile-only {
+    display: none !important;
   }
 }
 

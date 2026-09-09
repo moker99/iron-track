@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Sparkles, User, Flame, Eye, EyeOff } from 'lucide-react';
 import type { ActivityLevel, FitnessGoal, Gender, UserProfile, DietProtocol, CarbCyclingPhase, WeeklyTrainingHours } from '../types';
+import { StorageService } from '../services/storage';
 import {
   ACTIVITY_MULTIPLIERS,
   calculateBMI,
@@ -168,6 +169,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+
+    // 防止同名重複建立新成員
+    const allProfiles = StorageService.getProfiles();
+    const isDuplicate = allProfiles.some(
+      p => p.id !== profile?.id && p.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(`已存在同名的成員「${name.trim()}」！若要修改資料請至設定中「編輯」該成員，請勿重複新增。`);
+      return;
+    }
 
     const newProfile: UserProfile = {
       id: profile?.id || `user-${Date.now()}`,

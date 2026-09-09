@@ -94,7 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 className="btn btn-secondary btn-sm"
                 style={{
-                  padding: '0.3rem 0.65rem',
+                  padding: '0.3rem 0.55rem',
                   fontSize: '0.75rem',
                   gap: '0.35rem',
                   borderColor: 'rgba(0, 245, 155, 0.4)',
@@ -106,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <RefreshCw size={12} className={isSyncing ? 'spin-animation' : ''} style={{ color: 'var(--neon-green)' }} />
                 <span style={{ color: 'var(--neon-green)', fontWeight: 600 }}>
-                  {isSyncing ? '同步中...' : '雲端連線中'}
+                  {isSyncing ? '同步中' : '已連線'}
                 </span>
               </button>
             ) : (
@@ -114,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 className="btn btn-secondary btn-sm"
                 style={{
-                  padding: '0.3rem 0.65rem',
+                  padding: '0.3rem 0.55rem',
                   fontSize: '0.75rem',
                   gap: '0.35rem',
                   color: 'var(--text-muted)',
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={onOpenSettings}
               >
                 <CloudOff size={12} />
-                <span>離線模式 (點此串接)</span>
+                <span>離線</span>
               </button>
             )}
 
@@ -132,19 +132,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div style={{ position: 'relative' }}>
               <button
                 className="btn btn-secondary"
-                style={{ padding: '0.4rem 0.75rem', gap: '0.4rem' }}
+                style={{ padding: '0.35rem 0.6rem', gap: '0.35rem' }}
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                <span style={{ fontSize: '1.15rem' }}>{activeProfile.avatar || '🏋️'}</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 600, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeProfile.name}
+                <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>{activeProfile.avatar || '🏋️'}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, maxWidth: '85px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeProfile.name.replace(/\s*\(.*?\)/g, '') || activeProfile.name}
                 </span>
                 {activeProfile.role === 'admin' && (
-                  <span className="badge badge-purple" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
+                  <span className="badge badge-purple desktop-badge" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
                     👑 Admin
                   </span>
                 )}
-                <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+                <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} />
               </button>
 
               {dropdownOpen && (

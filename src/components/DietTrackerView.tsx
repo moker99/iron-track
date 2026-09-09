@@ -365,8 +365,8 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
       {/* Date Switcher & Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>飲食與三大營養素追蹤</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <h1 className="page-header-title" style={{ fontSize: '1.75rem', fontWeight: 800 }}>飲食與三大營養素追蹤</h1>
+          <p className="page-header-desc" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             精準量化蛋白質、碳水化合物、脂肪能量平衡，達成體態目標。
           </p>
         </div>
@@ -432,13 +432,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="mobile-action-bar flex items-center gap-2">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setIsProtocolModalOpen(true)}
               >
-                🔄 切換飲食方案
+                🔄 切換方案
               </button>
               <button
                 type="button"
@@ -452,7 +452,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                 className="btn btn-secondary btn-sm"
                 onClick={() => setIsKnowledgeModalOpen(true)}
               >
-                💡 執行守則 & 補劑
+                💡 執行守則
               </button>
             </div>
           </div>
@@ -579,20 +579,20 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="mobile-action-bar flex items-center gap-2">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setIsProtocolModalOpen(true)}
               >
-                🔄 切換飲食方案
+                🔄 切換方案
               </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setIsKnowledgeModalOpen(true)}
               >
-                💡 核心心法 & 補劑指南
+                💡 核心心法
               </button>
             </div>
           </div>
@@ -729,30 +729,32 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           border: '1px solid rgba(168, 85, 247, 0.35)',
         }}>
           <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
-            <div className="flex items-center gap-2">
-              <Clock size={20} style={{ color: 'var(--neon-purple)' }} />
-              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                📅 三個月動態減脂方案 (每週訓練時數起點)
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Clock size={20} style={{ color: 'var(--neon-purple)' }} />
+                <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                  📅 三個月動態減脂方案
+                </span>
+              </div>
               <span className="badge badge-purple">
                 {targets.threeMonthsInfo.gender === 'female' ? '女性專屬係數' : '男性專屬係數'}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mobile-action-bar">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setIsProtocolModalOpen(true)}
               >
-                🔄 切換飲食方案
+                🔄 切換方案
               </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setIsThreeMonthsModalOpen(true)}
               >
-                📊 查看男女對照表
+                📊 男女對照表
               </button>
               <button
                 type="button"
@@ -768,7 +770,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
               當前每週訓練/運動時數 (點擊即時切換試算)：
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+            <div className="training-hours-grid">
               {(['2-3', '4-5', '6-7', '8-9'] as WeeklyTrainingHours[]).map(hrs => (
                 <button
                   key={hrs}
@@ -793,25 +795,17 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             padding: '0.65rem 0.85rem',
             borderRadius: '0.65rem',
             fontSize: '0.82rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.5rem'
+            color: 'var(--text-muted)'
           }}>
-            <div>
-              <span style={{ color: 'var(--neon-purple)', fontWeight: 700 }}>
-                係數配比：
-              </span>
-              <span style={{ color: 'var(--text-main)', marginLeft: '0.3rem' }}>
-                碳水 <strong>{targets.threeMonthsInfo.carbRatio}</strong> g/kg ·
-                蛋白質 <strong>{targets.threeMonthsInfo.proteinRatio}</strong> g/kg ·
-                脂肪 <strong>{targets.threeMonthsInfo.fatRatio}</strong> g/kg
-              </span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+            <p>
+              <strong style={{ color: 'var(--neon-purple)' }}>係數配比</strong>：
+              碳水 <strong style={{ color: 'var(--text-main)' }}>{targets.threeMonthsInfo.carbRatio}</strong> g/kg ·
+              蛋白質 <strong style={{ color: 'var(--text-main)' }}>{targets.threeMonthsInfo.proteinRatio}</strong> g/kg ·
+              脂肪 <strong style={{ color: 'var(--text-main)' }}>{targets.threeMonthsInfo.fatRatio}</strong> g/kg
+            </p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
               執行 7–10 天後依體態回饋微調，勿因單日體重波動改方案
-            </div>
+            </p>
           </div>
         </div>
       )}
@@ -835,13 +829,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mobile-action-bar">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setIsProtocolModalOpen(true)}
               >
-                🔄 切換飲食方案
+                🔄 切換方案
               </button>
               <button
                 type="button"
@@ -884,14 +878,14 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 mobile-action-bar">
             <button
               type="button"
               className="btn btn-primary btn-sm"
               onClick={() => setIsProtocolModalOpen(true)}
             >
               <RefreshCw size={14} />
-              <span>切換 / 重新選擇方案</span>
+              <span>切換方案</span>
             </button>
             <button
               type="button"
@@ -899,7 +893,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               onClick={onOpenProfileEdit}
             >
               <Sparkles size={14} style={{ color: 'var(--neon-cyan)' }} />
-              <span>個人體態設定 (BMR / TDEE)</span>
+              <span>體態設定 (BMR/TDEE)</span>
             </button>
           </div>
         </div>
@@ -923,43 +917,43 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
         )}
 
         {/* Calories Progress & Remaining */}
-        <div className="grid-cols-4 grid-responsive-2 gap-4" style={{ marginBottom: '1.5rem' }}>
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>基準目標熱量 (Target)</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-main)' }}>
-              {targets.targetCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+        <div className="grid-cols-4 mobile-grid-2 gap-3" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.85rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>基準目標熱量 (Target)</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--text-main)', margin: '0.2rem 0' }}>
+              {targets.targetCalories} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
               {totals.workoutBurn > 0 ? `TDEE ${targets.tdee} + 運動 ${totals.workoutBurn}k` : `BMR ${targets.bmr} · TDEE ${targets.tdee}`}
             </div>
           </div>
 
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>已攝取熱量 (Consumed)</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: totals.calories > totals.dynamicTarget ? 'var(--neon-rose)' : 'var(--neon-green)' }}>
-              {totals.calories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.85rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>已攝取熱量 (Consumed)</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: totals.calories > totals.dynamicTarget ? 'var(--neon-rose)' : 'var(--neon-green)', margin: '0.2rem 0' }}>
+              {totals.calories} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
               佔動態預算 {Math.round((totals.calories / totals.dynamicTarget) * 100)}%
             </div>
           </div>
 
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>剩餘可用熱量 (Remaining)</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: totals.remainingCalories < 0 ? 'var(--neon-rose)' : 'var(--neon-cyan)' }}>
-              {totals.remainingCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.85rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>剩餘可用熱量 (Remaining)</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: totals.remainingCalories < 0 ? 'var(--neon-rose)' : 'var(--neon-cyan)', margin: '0.2rem 0' }}>
+              {totals.remainingCalories} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
               {totals.workoutBurn > 0 ? `含運動 +${totals.workoutBurn}k 加成` : (totals.remainingCalories >= 0 ? '仍在熱量預算範圍內' : '已超出預算赤字')}
             </div>
           </div>
 
-          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '1rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>三大元素能量驗證</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--neon-amber)' }}>
-              {totals.formulaVerifiedCalories} <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>kcal</span>
+          <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.85rem', borderRadius: '0.85rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>三大元素能量驗證</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--neon-amber)', margin: '0.2rem 0' }}>
+              {totals.formulaVerifiedCalories} <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>kcal</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
               4P ({Math.round(totals.protein * 4)}) + 4C ({Math.round(totals.carbs * 4)}) + 9F ({Math.round(totals.fat * 9)})
             </div>
           </div>
