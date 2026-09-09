@@ -303,7 +303,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             ) : (
               <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '1rem 0' }}>
-                今天還沒有進行重訓紀錄！選一套課表（例如推拉腿 PPL 或全身分化）開始流汗吧！
+                今天還沒有進行重訓紀錄！選一套課表（例如上下肢分化或全身高效循環）開始流汗吧！
               </div>
             )}
           </div>

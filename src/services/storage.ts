@@ -264,9 +264,13 @@ export class StorageService {
     try {
       const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
       const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
-      return [...DEFAULT_ROUTINE_TEMPLATES, ...customList];
+      return [...DEFAULT_ROUTINE_TEMPLATES, ...customList].filter(
+        r => !r.id.startsWith('routine-ppl') && !r.title.toUpperCase().includes('PPL')
+      );
     } catch {
-      return DEFAULT_ROUTINE_TEMPLATES;
+      return DEFAULT_ROUTINE_TEMPLATES.filter(
+        r => !r.id.startsWith('routine-ppl') && !r.title.toUpperCase().includes('PPL')
+      );
     }
   }
 

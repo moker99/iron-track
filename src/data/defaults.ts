@@ -151,44 +151,6 @@ export const DEFAULT_EXERCISES: Exercise[] = [
 
 export const DEFAULT_ROUTINE_TEMPLATES: WorkoutRoutineTemplate[] = [
   {
-    id: 'routine-ppl-push',
-    title: 'PPL 推 (Push) - 胸/肩/三頭',
-    category: 'PPL 專項',
-    description: '專注於推力肌群，提升上肢推力容量與維度。',
-    exercises: [
-      { exerciseId: 'ex-bench-press', exerciseName: '槓鈴臥推 (Bench Press)', category: 'chest', targetSets: 4, targetReps: 8 },
-      { exerciseId: 'ex-incline-db-press', exerciseName: '上斜啞鈴臥推 (Incline DB Press)', category: 'chest', targetSets: 3, targetReps: 10 },
-      { exerciseId: 'ex-overhead-press', exerciseName: '槓鈴肩推 (Overhead Press)', category: 'shoulders', targetSets: 3, targetReps: 8 },
-      { exerciseId: 'ex-lateral-raise', exerciseName: '啞鈴側平舉 (Lateral Raise)', category: 'shoulders', targetSets: 4, targetReps: 15 },
-      { exerciseId: 'ex-tricep-pushdown', exerciseName: '滑輪三頭下壓 (Tricep Pushdown)', category: 'arms', targetSets: 3, targetReps: 12 },
-    ]
-  },
-  {
-    id: 'routine-ppl-pull',
-    title: 'PPL 拉 (Pull) - 背/二頭/後肩',
-    category: 'PPL 專項',
-    description: '強化後側鏈拉力、背部寬度厚度與手臂二頭。',
-    exercises: [
-      { exerciseId: 'ex-deadlift', exerciseName: '標準硬舉 (Deadlift)', category: 'back', targetSets: 3, targetReps: 5 },
-      { exerciseId: 'ex-pullup', exerciseName: '引體向上 (Pull-ups)', category: 'back', targetSets: 3, targetReps: 8 },
-      { exerciseId: 'ex-barbell-row', exerciseName: '俯身槓鈴划船 (Barbell Row)', category: 'back', targetSets: 4, targetReps: 10 },
-      { exerciseId: 'ex-face-pull', exerciseName: '滑輪臉拉 (Face Pull)', category: 'shoulders', targetSets: 3, targetReps: 15 },
-      { exerciseId: 'ex-barbell-curl', exerciseName: '槓鈴二頭彎舉 (Barbell Curl)', category: 'arms', targetSets: 3, targetReps: 12 },
-    ]
-  },
-  {
-    id: 'routine-ppl-legs',
-    title: 'PPL 腿 (Legs) - 深蹲/後側/核心',
-    category: 'PPL 專項',
-    description: '下肢動力鏈打造，高強度腿部增肌與全身合成代謝刺激。',
-    exercises: [
-      { exerciseId: 'ex-barbell-squat', exerciseName: '槓鈴深蹲 (Barbell Squat)', category: 'legs', targetSets: 4, targetReps: 6 },
-      { exerciseId: 'ex-romanian-deadlift', exerciseName: '羅馬尼亞硬舉 (RDL)', category: 'legs', targetSets: 3, targetReps: 8 },
-      { exerciseId: 'ex-leg-press', exerciseName: '機械腿推 (Leg Press)', category: 'legs', targetSets: 3, targetReps: 12 },
-      { exerciseId: 'ex-hanging-leg-raise', exerciseName: '懸垂舉腿 (Hanging Leg Raise)', category: 'core', targetSets: 3, targetReps: 15 },
-    ]
-  },
-  {
     id: 'routine-upper-body',
     title: '上半身力量分化 (Upper Body)',
     category: '上下肢分化',
@@ -199,6 +161,31 @@ export const DEFAULT_ROUTINE_TEMPLATES: WorkoutRoutineTemplate[] = [
       { exerciseId: 'ex-overhead-press', exerciseName: '槓鈴肩推 (Overhead Press)', category: 'shoulders', targetSets: 3, targetReps: 8 },
       { exerciseId: 'ex-seated-cable-row', exerciseName: '坐姿滑輪划船 (Seated Row)', category: 'back', targetSets: 3, targetReps: 10 },
       { exerciseId: 'ex-tricep-pushdown', exerciseName: '滑輪三頭下壓 (Tricep Pushdown)', category: 'arms', targetSets: 3, targetReps: 12 },
+    ]
+  },
+  {
+    id: 'routine-lower-body',
+    title: '下半身肌力分化 (Lower Body)',
+    category: '上下肢分化',
+    description: '下肢動力鏈打造，高強度腿部增肌與全身合成代謝刺激。',
+    exercises: [
+      { exerciseId: 'ex-barbell-squat', exerciseName: '槓鈴深蹲 (Barbell Squat)', category: 'legs', targetSets: 4, targetReps: 6 },
+      { exerciseId: 'ex-romanian-deadlift', exerciseName: '羅馬尼亞硬舉 (RDL)', category: 'legs', targetSets: 3, targetReps: 8 },
+      { exerciseId: 'ex-leg-press', exerciseName: '機械腿推 (Leg Press)', category: 'legs', targetSets: 3, targetReps: 12 },
+      { exerciseId: 'ex-hanging-leg-raise', exerciseName: '懸垂舉腿 (Hanging Leg Raise)', category: 'core', targetSets: 3, targetReps: 15 },
+    ]
+  },
+  {
+    id: 'routine-full-body',
+    title: '全身高效循環 (Full Body)',
+    category: '全身分化',
+    description: '一次訓練涵蓋胸、背、腿、肩與核心，適合時間緊湊或每週訓練 2~3 次者。',
+    exercises: [
+      { exerciseId: 'ex-barbell-squat', exerciseName: '槓鈴深蹲 (Barbell Squat)', category: 'legs', targetSets: 3, targetReps: 8 },
+      { exerciseId: 'ex-bench-press', exerciseName: '槓鈴臥推 (Bench Press)', category: 'chest', targetSets: 3, targetReps: 8 },
+      { exerciseId: 'ex-pullup', exerciseName: '引體向上 (Pull-ups)', category: 'back', targetSets: 3, targetReps: 8 },
+      { exerciseId: 'ex-overhead-press', exerciseName: '槓鈴肩推 (Overhead Press)', category: 'shoulders', targetSets: 3, targetReps: 10 },
+      { exerciseId: 'ex-hanging-leg-raise', exerciseName: '懸垂舉腿 (Hanging Leg Raise)', category: 'core', targetSets: 3, targetReps: 15 },
     ]
   }
 ];
