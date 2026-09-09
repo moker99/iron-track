@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Shield, KeyRound, ArrowRight, X, AlertCircle } from 'lucide-react';
+import { Lock, Shield, KeyRound, ArrowRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { StorageService } from '../services/storage';
 
@@ -19,21 +19,22 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
   onCancel,
 }) => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(targetProfile || (profiles.length === 1 ? profiles[0] : null));
-  const [pinInput, setPinInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isShaking, setIsShaking] = useState<boolean>(false);
 
   const handleSelectUser = (user: UserProfile) => {
     setSelectedUser(user);
-    setPinInput('');
+    setPasswordInput('');
     setErrorMessage('');
   };
 
-  const handleSubmitPin = (e: React.FormEvent) => {
+  const handleSubmitPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
-    const isValid = StorageService.verifyPin(selectedUser.id, pinInput);
+    const isValid = StorageService.verifyPassword(selectedUser.id, passwordInput);
     if (isValid) {
       StorageService.setAuthenticatedProfileId(selectedUser.id);
       onSuccess(selectedUser);
@@ -41,11 +42,11 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
       setIsShaking(true);
       setErrorMessage(
         selectedUser.role === 'admin'
-          ? '管理員 PIN 碼錯誤！(預設密碼為 8888)'
-          : '個人 PIN 碼錯誤，請向隊長 Shawn 確認！'
+          ? '管理員密碼錯誤！(初始預設密碼為 8888)'
+          : '個人登入密碼錯誤，請重新確認！'
       );
       setTimeout(() => setIsShaking(false), 500);
-      setPinInput('');
+      setPasswordInput('');
     }
   };
 
@@ -109,7 +110,7 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
             {selectedUser
-              ? `請輸入 ${selectedUser.name} 的 4 碼個人 PIN 碼`
+              ? `請輸入 ${selectedUser.name} 的個人登入通行密碼`
               : '請先點選您的成員身分，以解鎖個人訓練與飲食數據'}
           </p>
         </div>
@@ -155,8 +156,8 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
             </div>
           </div>
         ) : (
-          /* STEP 2: PIN Input Form */
-          <form onSubmit={handleSubmitPin} className="flex flex-col gap-4">
+          /* STEP 2: Password Input Form */
+          <form onSubmit={handleSubmitPassword} className="flex flex-col gap-4">
             <div
               style={{
                 display: 'flex',
@@ -172,7 +173,7 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedUser.name}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {selectedUser.role === 'admin' ? '👑 管理員帳號 (預設 PIN: 8888)' : '成員個人帳號'}
+                  {selectedUser.role === 'admin' ? '👑 管理員帳號 (預設密碼: 8888)' : '成員個人帳號 (預設密碼: 1234)'}
                 </div>
               </div>
 
@@ -183,7 +184,7 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
                   style={{ fontSize: '0.75rem', color: 'var(--neon-cyan)' }}
                   onClick={() => {
                     setSelectedUser(null);
-                    setPinInput('');
+                    setPasswordInput('');
                     setErrorMessage('');
                   }}
                 >
@@ -192,31 +193,47 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
               )}
             </div>
 
-            {/* PIN Input */}
+            {/* Password Input */}
             <div>
-              <label className="label" style={{ textAlign: 'center' }}>
-                輸入 4 碼 PIN 密碼
+              <label className="label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>登入通行密碼</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>支援英文、數字與任意字符</span>
               </label>
-              <input
-                type="password"
-                maxLength={6}
-                autoFocus
-                className="input"
-                style={{
-                  fontSize: '2rem',
-                  letterSpacing: '0.8rem',
-                  textAlign: 'center',
-                  fontWeight: 900,
-                  padding: '0.6rem',
-                  color: 'var(--neon-green)',
-                }}
-                placeholder="••••"
-                value={pinInput}
-                onChange={e => {
-                  setPinInput(e.target.value.replace(/\D/g, ''));
-                  setErrorMessage('');
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoFocus
+                  className="input"
+                  style={{
+                    fontSize: '1.15rem',
+                    padding: '0.75rem 2.75rem 0.75rem 1rem',
+                    color: 'var(--neon-green)',
+                    letterSpacing: showPassword ? 'normal' : '0.2rem',
+                  }}
+                  placeholder="請輸入此帳號的通行密碼"
+                  value={passwordInput}
+                  onChange={e => {
+                    setPasswordInput(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  required
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon btn-sm"
+                  style={{
+                    position: 'absolute',
+                    right: '0.6rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)'
+                  }}
+                  onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {errorMessage && (
@@ -248,10 +265,10 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
                 type="submit"
                 className="btn btn-primary"
                 style={{ flex: 2, padding: '0.8rem', justifyContent: 'center' }}
-                disabled={pinInput.length < 4}
+                disabled={passwordInput.trim().length === 0}
               >
                 <KeyRound size={16} />
-                <span>驗證並進入系統</span>
+                <span>驗證密碼並進入系統</span>
               </button>
             </div>
           </form>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Sparkles, User, Flame } from 'lucide-react';
+import { X, Sparkles, User, Flame, Eye, EyeOff } from 'lucide-react';
 import type { ActivityLevel, FitnessGoal, Gender, UserProfile, DietProtocol, CarbCyclingPhase, WeeklyTrainingHours } from '../types';
 import {
   ACTIVITY_MULTIPLIERS,
@@ -36,7 +36,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<FitnessGoal>(profile?.goal || 'maintain');
   const [role, setRole] = useState<'admin' | 'member'>(profile?.role || 'member');
-  const [pinCode, setPinCode] = useState<string>(profile?.pinCode || (role === 'admin' ? '8888' : '1234'));
+  const [password, setPassword] = useState<string>(profile?.password || profile?.pinCode || (role === 'admin' ? '8888' : '1234'));
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // 飲食方案策略
   const [dietProtocol, setDietProtocol] = useState<DietProtocol>(profile?.dietProtocol || 'tan_carb_cycling');
@@ -179,7 +180,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       activityLevel,
       goal,
       role,
-      pinCode: pinCode.trim() || (role === 'admin' ? '8888' : '1234'),
+      password: password.trim() || (role === 'admin' ? '8888' : '1234'),
+      pinCode: password.trim() || (role === 'admin' ? '8888' : '1234'),
 
       dietProtocol,
       carbCyclingPhase,
@@ -303,7 +305,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
-            {/* PIN Code Setting */}
+            {/* 通行密碼設定 */}
             <div style={{
               background: 'rgba(18, 26, 43, 0.7)',
               padding: '0.85rem',
@@ -312,25 +314,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             }}>
               <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
                 <label className="label" style={{ marginBottom: 0 }}>
-                  🔑 個人登入 PIN 碼 (4~6 碼純數字)
+                  🔑 個人通行密碼 (自由自訂，支援英文、數字與符號)
                 </label>
                 <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>
                   {role === 'admin' ? 'Admin 預設 8888' : '隊員預設 1234'}
                 </span>
               </div>
-              <input
-                type="text"
-                maxLength={6}
-                className="input"
-                placeholder={role === 'admin' ? '8888' : '1234'}
-                value={pinCode}
-                onChange={e => setPinCode(e.target.value.replace(/\D/g, ''))}
-                required
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input"
+                  style={{ paddingRight: '2.5rem' }}
+                  placeholder={role === 'admin' ? '請輸入管理員密碼 (可自選任意英文/數字)' : '請輸入成員登入密碼 (可自選任意英文/數字)'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon btn-sm"
+                  style={{
+                    position: 'absolute',
+                    right: '0.5rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)'
+                  }}
+                  onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               <div style={{ fontSize: '0.73rem', color: 'var(--text-dim)', marginTop: '0.35rem' }}>
                 {role === 'admin'
-                  ? '隊長管理員通行密碼，任何裝置欲切換至 Admin 均需輸入此 PIN 碼。'
-                  : '此成員的手機登入密碼，隊員初次於自己手機登入時使用。'}
+                  ? '隊長管理員通行密碼，任何裝置欲切換至 Admin 均需輸入此密碼（支援任意文字與符號）。'
+                  : '成員登入密碼，任何裝置切換至此成員時只要輸入相符密碼即可登入。'}
               </div>
             </div>
 

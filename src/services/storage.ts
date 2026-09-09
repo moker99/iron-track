@@ -11,7 +11,6 @@ import type {
 import {
   DEFAULT_EXERCISES,
   DEFAULT_FOOD_ITEMS,
-  DEFAULT_ROUTINE_TEMPLATES,
   INITIAL_USER_PROFILES,
 } from '../data/defaults';
 import { calculate1RM } from '../utils/nutrition';
@@ -48,12 +47,16 @@ export class StorageService {
     }
   }
 
-  static verifyPin(profileId: string, pin: string): boolean {
+  static verifyPassword(profileId: string, inputPass: string): boolean {
     const profiles = this.getProfiles();
     const target = profiles.find(p => p.id === profileId);
     if (!target) return false;
-    const expectedPin = target.pinCode || (target.role === 'admin' ? '8888' : '1234');
-    return pin.trim() === expectedPin.trim();
+    const expected = target.password || target.pinCode || (target.role === 'admin' ? '8888' : '1234');
+    return inputPass.trim() === expected.trim();
+  }
+
+  static verifyPin(profileId: string, pin: string): boolean {
+    return this.verifyPassword(profileId, pin);
   }
 
   // ==================== 多使用者 (Profiles) 管理 ====================
@@ -264,14 +267,14 @@ export class StorageService {
     try {
       const custom = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
       const customList: WorkoutRoutineTemplate[] = custom ? JSON.parse(custom) : [];
-      return [...DEFAULT_ROUTINE_TEMPLATES, ...customList].filter(
-        r => !r.id.startsWith('routine-ppl') && !r.title.toUpperCase().includes('PPL')
-      );
+      return customList;
     } catch {
-      return DEFAULT_ROUTINE_TEMPLATES.filter(
-        r => !r.id.startsWith('routine-ppl') && !r.title.toUpperCase().includes('PPL')
-      );
+      return [];
     }
+  }
+
+  static getRawCustomRoutines(): WorkoutRoutineTemplate[] {
+    return this.getAllRoutines();
   }
 
   static addCustomRoutine(routine: WorkoutRoutineTemplate): void {

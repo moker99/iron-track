@@ -20,6 +20,7 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   goal: FitnessGoal;
   role?: UserRole;
+  password?: string;
   pinCode?: string;
 
   // 飲食計劃模式與參數

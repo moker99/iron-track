@@ -134,7 +134,8 @@ export class SupabaseSyncService {
             activityLevel: p.activity_level || 'moderate',
             goal: p.goal || 'maintain',
             role: p.role || 'member',
-            pinCode: p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
+            password: p.password || p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
+            pinCode: p.password || p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
             dietProtocol: p.diet_protocol || 'standard',
             carbCyclingPhase: p.carb_cycling_phase || 'baseline',
             sprintStartDate: p.sprint_start_date || undefined,
@@ -149,7 +150,32 @@ export class SupabaseSyncService {
             targetWeightKg: p.target_weight_kg ? Number(p.target_weight_kg) : undefined,
             createdAt: p.created_at || new Date().toISOString(),
           }));
-          localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(mappedProfiles));
+
+          const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
+          const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
+          const profileMap = new Map<string, UserProfile>();
+
+          // 本地優先載入
+          localProfiles.forEach(p => profileMap.set(p.id, p));
+
+          // 雲端資料合併（若雲端為預設值，保留本機設定）
+          mappedProfiles.forEach(cp => {
+            const lp = profileMap.get(cp.id);
+            profileMap.set(cp.id, {
+              ...lp,
+              ...cp,
+              dietProtocol: cp.dietProtocol !== 'standard' ? cp.dietProtocol : (lp?.dietProtocol || cp.dietProtocol),
+              weeklyTrainingHours: cp.weeklyTrainingHours || lp?.weeklyTrainingHours || '4-5',
+            });
+          });
+
+          // 若本地有雲端尚未擁有的 Profile，背景自動補推
+          const missingProfiles = localProfiles.filter(lp => !mappedProfiles.some(cp => cp.id === lp.id));
+          for (const mp of missingProfiles) {
+            this.pushProfile(mp).catch(() => {});
+          }
+
+          localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(Array.from(profileMap.values())));
         }
       }
 
@@ -175,7 +201,21 @@ export class SupabaseSyncService {
           fat: Number(m.fat),
           createdAt: m.created_at || new Date().toISOString(),
         }));
-        localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(mappedMeals));
+
+        // 安全合併：永不以空雲端清空本地記錄
+        const localRaw = localStorage.getItem(STORAGE_KEYS.MEAL_LOGS);
+        const localMeals: MealEntry[] = localRaw ? JSON.parse(localRaw) : [];
+        const mealMap = new Map<string, MealEntry>();
+
+        localMeals.forEach(m => mealMap.set(m.id, m));
+        mappedMeals.forEach(m => mealMap.set(m.id, m));
+
+        const missingOnCloud = localMeals.filter(lm => !mappedMeals.some(cm => cm.id === lm.id));
+        for (const missing of missingOnCloud) {
+          this.pushMealEntry(missing).catch(() => {});
+        }
+
+        localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(Array.from(mealMap.values())));
       }
 
       // 3. 同步 Workout Sessions
@@ -198,10 +238,24 @@ export class SupabaseSyncService {
           totalSets: Number(s.total_sets) || 0,
           notes: s.notes || undefined,
         }));
-        localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(mappedSessions));
+
+        // 安全合併：永不以空雲端清空本地記錄
+        const localRaw = localStorage.getItem(STORAGE_KEYS.WORKOUT_SESSIONS);
+        const localSessions: WorkoutSession[] = localRaw ? JSON.parse(localRaw) : [];
+        const sessionMap = new Map<string, WorkoutSession>();
+
+        localSessions.forEach(s => sessionMap.set(s.id, s));
+        mappedSessions.forEach(s => sessionMap.set(s.id, s));
+
+        const missingOnCloud = localSessions.filter(ls => !mappedSessions.some(cs => cs.id === ls.id));
+        for (const missing of missingOnCloud) {
+          this.pushWorkoutSession(missing).catch(() => {});
+        }
+
+        localStorage.setItem(STORAGE_KEYS.WORKOUT_SESSIONS, JSON.stringify(Array.from(sessionMap.values())));
       }
 
-      // 4. 同步 Routine Templates
+      // 4. 同步 Routine Templates (安全非破壞性合併)
       const { data: cloudRoutines, error: routineErr } = await client
         .from('routine_templates')
         .select('*');
@@ -219,7 +273,24 @@ export class SupabaseSyncService {
           isShared: r.is_shared ?? true,
           createdAt: r.created_at || new Date().toISOString(),
         }));
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(mappedRoutines));
+
+        // 安全非破壞性合併：先保留本地已建立的自訂課表，避免空雲端覆蓋清空
+        const localRaw = localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES);
+        const localRoutines: WorkoutRoutineTemplate[] = localRaw ? JSON.parse(localRaw) : [];
+        const routineMap = new Map<string, WorkoutRoutineTemplate>();
+
+        // 1. 先放本地課表
+        localRoutines.forEach(r => routineMap.set(r.id, r));
+        // 2. 雲端資料同步更新
+        mappedRoutines.forEach(r => routineMap.set(r.id, r));
+
+        // 3. 若本地有課表但雲端尚未存在，背景補推至雲端
+        const missingOnCloud = localRoutines.filter(lr => !mappedRoutines.some(cr => cr.id === lr.id));
+        for (const missing of missingOnCloud) {
+          this.pushRoutineTemplate(missing).catch(() => {});
+        }
+
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_ROUTINES, JSON.stringify(Array.from(routineMap.values())));
       }
 
       // 5. 同步 Custom Exercises
@@ -237,7 +308,15 @@ export class SupabaseSyncService {
           notes: e.notes || undefined,
           isCustom: true,
         }));
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_EXERCISES, JSON.stringify(mappedExercises));
+
+        const localRaw = localStorage.getItem(STORAGE_KEYS.CUSTOM_EXERCISES);
+        const localExercises: Exercise[] = localRaw ? JSON.parse(localRaw) : [];
+        const exMap = new Map<string, Exercise>();
+
+        localExercises.forEach(e => exMap.set(e.id, e));
+        mappedExercises.forEach(e => exMap.set(e.id, e));
+
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_EXERCISES, JSON.stringify(Array.from(exMap.values())));
       }
 
       // 6. 同步 Custom Foods
@@ -258,7 +337,15 @@ export class SupabaseSyncService {
           category: f.category || 'other',
           isCustom: true,
         }));
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(mappedFoods));
+
+        const localRaw = localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS);
+        const localFoods: FoodItem[] = localRaw ? JSON.parse(localRaw) : [];
+        const foodMap = new Map<string, FoodItem>();
+
+        localFoods.forEach(f => foodMap.set(f.id, f));
+        mappedFoods.forEach(f => foodMap.set(f.id, f));
+
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(Array.from(foodMap.values())));
       }
 
       return { success: true, message: '雲端資料同步完成！' };
@@ -312,7 +399,7 @@ export class SupabaseSyncService {
         activity_level: profile.activityLevel,
         goal: profile.goal,
         role: profile.role || 'member',
-        pin_code: profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
+        pin_code: profile.password || profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
         diet_protocol: profile.dietProtocol || 'standard',
         carb_cycling_phase: profile.carbCyclingPhase || 'baseline',
         sprint_start_date: profile.sprintStartDate || null,
@@ -341,7 +428,7 @@ export class SupabaseSyncService {
           activity_level: profile.activityLevel,
           goal: profile.goal,
           role: profile.role || 'member',
-          pin_code: profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
+          pin_code: profile.password || profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
           custom_calories: profile.customCalories || null,
           custom_protein_grams: profile.customProteinGrams || null,
           custom_carbs_grams: profile.customCarbsGrams || null,
@@ -436,17 +523,39 @@ export class SupabaseSyncService {
     const client = getSupabaseClient();
     if (!client) return;
     try {
-      await client.from('routine_templates').upsert({
+      // 確保關聯的 user profile 存在於雲端 (避免 23503 foreign key error)
+      if (routine.userId) {
+        const { data: profileCheck } = await client
+          .from('profiles')
+          .select('id')
+          .eq('id', routine.userId)
+          .maybeSingle();
+
+        if (!profileCheck) {
+          const localRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
+          const localProfiles: UserProfile[] = localRaw ? JSON.parse(localRaw) : INITIAL_USER_PROFILES;
+          const targetP = localProfiles.find(p => p.id === routine.userId);
+          if (targetP) {
+            await this.pushProfile(targetP);
+          }
+        }
+      }
+
+      const { error } = await client.from('routine_templates').upsert({
         id: routine.id,
         user_id: routine.userId || null,
         author_name: routine.authorName || null,
         title: routine.title,
         category: routine.category,
-        description: routine.description,
+        description: routine.description || '',
         exercises: routine.exercises,
         is_custom: routine.isCustom ?? true,
         is_shared: routine.isShared ?? true,
       });
+
+      if (error) {
+        console.error('pushRoutineTemplate Supabase upsert error:', error);
+      }
     } catch (e) {
       console.error('pushRoutineTemplate to Supabase failed:', e);
     }

@@ -80,6 +80,8 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     targetReps: number;
   }[]>([]);
   const [selectedExForRoutine, setSelectedExForRoutine] = useState<string>('');
+  const [routineDraftCat, setRoutineDraftCat] = useState<ExerciseCategory | 'all'>('all');
+  const [routineDraftSearch, setRoutineDraftSearch] = useState<string>('');
 
   // Active workout session state
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
@@ -280,20 +282,22 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
     setNewRoutineDesc('');
     setNewRoutineIsShared(true);
     setNewRoutineExercises([]);
+    setRoutineDraftCat('all');
+    setRoutineDraftSearch('');
     setSelectedExForRoutine(allExercises[0]?.id || '');
     setIsCreateRoutineOpen(true);
   };
 
-  const handleAddExerciseToRoutineDraft = () => {
-    const ex = allExercises.find(e => e.id === selectedExForRoutine);
-    if (!ex) return;
+  const handleAddExerciseToRoutineDraft = (exerciseToAdd?: Exercise) => {
+    const target = exerciseToAdd || allExercises.find(e => e.id === selectedExForRoutine) || filteredDraftExercises[0];
+    if (!target) return;
     setNewRoutineExercises(prev => [
       ...prev,
       {
-        exerciseId: ex.id,
-        exerciseName: ex.name,
-        category: ex.category,
-        targetSets: 3,
+        exerciseId: target.id,
+        exerciseName: target.name,
+        category: target.category,
+        targetSets: 4,
         targetReps: 10,
       }
     ]);
@@ -503,6 +507,23 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
       );
     });
   }, [allExercises, exerciseSearch, selectedCat]);
+
+  // 自訂課表專用：依肌群部位與關鍵字即時篩選的動作清單
+  const filteredDraftExercises = useMemo(() => {
+    const q = routineDraftSearch.trim().toLowerCase();
+    return allExercises.filter(ex => {
+      const matchCat = routineDraftCat === 'all' || ex.category === routineDraftCat;
+      if (!matchCat) return false;
+      if (!q) return true;
+      const equipZh = EQUIPMENT_MAP[ex.equipment] || '';
+      return (
+        ex.name.toLowerCase().includes(q) ||
+        ex.primaryMuscle.toLowerCase().includes(q) ||
+        ex.equipment.toLowerCase().includes(q) ||
+        equipZh.toLowerCase().includes(q)
+      );
+    });
+  }, [allExercises, routineDraftCat, routineDraftSearch]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -795,15 +816,32 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
             </div>
 
             {visibleRoutines.length === 0 ? (
-              <div className="glass-card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                <p>目前在此分類下尚無課表。</p>
+              <div
+                className="glass-card"
+                style={{
+                  textAlign: 'center',
+                  padding: '3rem 1.5rem',
+                  color: 'var(--text-muted)',
+                  border: '1px dashed var(--border-color)',
+                  borderRadius: '1rem',
+                  background: 'rgba(15, 23, 42, 0.4)',
+                }}
+              >
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📋</div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                  目前尚無課表模板
+                </h3>
+                <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto 1.25rem', lineHeight: 1.5 }}>
+                  已依需求清空所有預設課表。您可以依據自己的訓練分化建立專屬菜單，或開啟「團隊共享」讓所有成員一同訓練！
+                </p>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ marginTop: '0.75rem' }}
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.25rem' }}
                   onClick={handleOpenCreateRoutine}
                 >
-                  立即建立一張個人或團隊課表
+                  <Plus size={16} />
+                  <span>＋ 建立第一張訓練課表</span>
                 </button>
               </div>
             ) : (
@@ -1357,33 +1395,115 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   borderRadius: '0.75rem',
                   border: '1px solid var(--border-color)',
                 }}>
-                  <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>課表動作清單 ({newRoutineExercises.length})</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>可從 133 個動作庫挑選</span>
+                    <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
+                      全方位動作庫共 {allExercises.length} 個動作
+                    </span>
                   </div>
 
-                  {/* Add Exercise Row */}
-                  <div className="flex gap-2 items-center flex-wrap" style={{ marginBottom: '1rem' }}>
+                  {/* 1. 部位快速切換標籤 */}
+                  <div style={{ marginBottom: '0.65rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+                      依肌群部位快速挑選：
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {(Object.keys(CATEGORY_MAP) as (ExerciseCategory | 'all')[]).map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`btn btn-sm ${routineDraftCat === cat ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}
+                          onClick={() => setRoutineDraftCat(cat)}
+                        >
+                          {CATEGORY_MAP[cat].split(' ')[0]} ({categoryCounts[cat] || 0})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. 搜尋關鍵字與動作選單 */}
+                  <div className="flex gap-2 items-center flex-wrap" style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ position: 'relative', flex: '1 1 180px' }}>
+                      <Search size={14} style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="搜尋動作，如: 臥推、深蹲、啞鈴、划船..."
+                        style={{ paddingLeft: '1.9rem', fontSize: '0.8rem', padding: '0.45rem 0.45rem 0.45rem 1.9rem' }}
+                        value={routineDraftSearch}
+                        onChange={e => setRoutineDraftSearch(e.target.value)}
+                      />
+                    </div>
+
                     <select
                       className="select"
-                      style={{ flex: 1, minWidth: '220px' }}
+                      style={{ flex: '2 1 240px', fontSize: '0.85rem' }}
                       value={selectedExForRoutine}
                       onChange={e => setSelectedExForRoutine(e.target.value)}
                     >
-                      {allExercises.map(ex => (
-                        <option key={ex.id} value={ex.id}>
-                          {ex.name} ({CATEGORY_MAP[ex.category] || ex.category})
-                        </option>
-                      ))}
+                      {filteredDraftExercises.length === 0 ? (
+                        <option value="">無符合動作</option>
+                      ) : (
+                        filteredDraftExercises.map(ex => (
+                          <option key={ex.id} value={ex.id}>
+                            {ex.name} — {ex.primaryMuscle} [{EQUIPMENT_MAP[ex.equipment] || ex.equipment}]
+                          </option>
+                        ))
+                      )}
                     </select>
+
                     <button
                       type="button"
                       className="btn btn-primary btn-sm"
-                      onClick={handleAddExerciseToRoutineDraft}
+                      onClick={() => handleAddExerciseToRoutineDraft()}
+                      disabled={filteredDraftExercises.length === 0}
                     >
                       <Plus size={15} />
                       <span>加入動作</span>
                     </button>
+                  </div>
+
+                  {/* 3. 常用動作點選即加入 (1-Click 加入) */}
+                  <div style={{
+                    marginBottom: '0.85rem',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    padding: '0.6rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <div className="flex items-center justify-between" style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: '0.35rem' }}>
+                      <span>💡 點擊下方任一動作名稱快速加入 (顯示目前篩選的動作):</span>
+                      <span style={{ color: 'var(--neon-cyan)' }}>共 {filteredDraftExercises.length} 個動作</span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.3rem',
+                      maxHeight: '115px',
+                      overflowY: 'auto'
+                    }}>
+                      {filteredDraftExercises.slice(0, 30).map(ex => (
+                        <button
+                          key={ex.id}
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            fontSize: '0.72rem',
+                            padding: '0.2rem 0.5rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            borderRadius: '0.4rem',
+                          }}
+                          onClick={() => handleAddExerciseToRoutineDraft(ex)}
+                          title={`主要肌群: ${ex.primaryMuscle} | 器械: ${EQUIPMENT_MAP[ex.equipment] || ex.equipment}`}
+                        >
+                          <Plus size={11} style={{ color: 'var(--neon-green)' }} />
+                          <span>{ex.name.split(' (')[0]}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Exercises list */}
