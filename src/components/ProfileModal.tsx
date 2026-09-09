@@ -12,6 +12,7 @@ import {
   getTanCarbCyclingConfig,
   getThreeMonthsConfig,
 } from '../utils/nutrition';
+import { NumberInput } from './NumberInput';
 
 interface ProfileModalProps {
   profile?: UserProfile | null;
@@ -29,9 +30,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [name, setName] = useState(profile?.name || '');
   const [avatar, setAvatar] = useState(profile?.avatar || '🏋️‍♂️');
   const [gender, setGender] = useState<Gender>(profile?.gender || 'male');
-  const [age, setAge] = useState<number>(profile?.age || 26);
-  const [heightCm, setHeightCm] = useState<number>(profile?.heightCm || 175);
-  const [weightKg, setWeightKg] = useState<number>(profile?.weightKg || 70);
+  const [age, setAge] = useState<number>(profile?.age ?? 0);
+  const [heightCm, setHeightCm] = useState<number>(profile?.heightCm ?? 0);
+  const [weightKg, setWeightKg] = useState<number>(profile?.weightKg ?? 0);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<FitnessGoal>(profile?.goal || 'maintain');
   const [role, setRole] = useState<'admin' | 'member'>(profile?.role || 'member');
@@ -53,10 +54,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [threeMonthsManualWeek, setThreeMonthsManualWeek] = useState<number>(profile?.threeMonthsManualWeek || 1);
 
   const [useCustomMacros, setUseCustomMacros] = useState<boolean>(Boolean(profile?.customCalories));
-  const [customCalories, setCustomCalories] = useState<number>(profile?.customCalories || 2400);
-  const [customProtein, setCustomProtein] = useState<number>(profile?.customProteinGrams || 140);
-  const [customCarbs, setCustomCarbs] = useState<number>(profile?.customCarbsGrams || 280);
-  const [customFat, setCustomFat] = useState<number>(profile?.customFatGrams || 65);
+  const [customCalories, setCustomCalories] = useState<number>(profile?.customCalories ?? 0);
+  const [customProtein, setCustomProtein] = useState<number>(profile?.customProteinGrams ?? 0);
+  const [customCarbs, setCustomCarbs] = useState<number>(profile?.customCarbsGrams ?? 0);
+  const [customFat, setCustomFat] = useState<number>(profile?.customFatGrams ?? 0);
 
   // 計算即時指標
   const liveBMR = useMemo(() => calculateBMR(gender, weightKg, heightCm, age), [gender, weightKg, heightCm, age]);
@@ -178,10 +179,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       threeMonthsStartDate,
       threeMonthsManualWeek: Number(threeMonthsManualWeek),
 
-      customCalories: useCustomMacros ? Number(customCalories) : liveProtocolTargets.calories,
-      customProteinGrams: useCustomMacros ? Number(customProtein) : liveProtocolTargets.protein,
-      customCarbsGrams: useCustomMacros ? Number(customCarbs) : liveProtocolTargets.carbs,
-      customFatGrams: useCustomMacros ? Number(customFat) : liveProtocolTargets.fat,
+      customCalories: useCustomMacros ? Number(customCalories) : undefined,
+      customProteinGrams: useCustomMacros ? Number(customProtein) : undefined,
+      customCarbsGrams: useCustomMacros ? Number(customCarbs) : undefined,
+      customFatGrams: useCustomMacros ? Number(customFat) : undefined,
       createdAt: profile?.createdAt || new Date().toISOString(),
     };
 
@@ -335,36 +336,36 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
               <div>
                 <label className="label">年齡 (歲)</label>
-                <input
-                  type="number"
+                <NumberInput
                   className="input"
                   value={age}
-                  min={10}
-                  max={100}
-                  onChange={e => setAge(Number(e.target.value))}
+                  min={0}
+                  max={120}
+                  placeholder="0"
+                  onChange={setAge}
                 />
               </div>
               <div>
                 <label className="label">身高 (cm)</label>
-                <input
-                  type="number"
+                <NumberInput
                   className="input"
                   value={heightCm}
-                  min={100}
-                  max={230}
-                  onChange={e => setHeightCm(Number(e.target.value))}
+                  min={0}
+                  max={250}
+                  placeholder="0"
+                  onChange={setHeightCm}
                 />
               </div>
               <div>
                 <label className="label">體重 (kg)</label>
-                <input
-                  type="number"
+                <NumberInput
                   step="0.1"
                   className="input"
                   value={weightKg}
-                  min={30}
-                  max={250}
-                  onChange={e => setWeightKg(Number(e.target.value))}
+                  min={0}
+                  max={300}
+                  placeholder="0"
+                  onChange={setWeightKg}
                 />
               </div>
             </div>
@@ -553,13 +554,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
                     <div>
                       <label className="label">手動指定當前天數 (1~40 天)</label>
-                      <input
-                        type="number"
+                      <NumberInput
                         min={1}
                         max={40}
                         className="input"
                         value={sprintManualDay}
-                        onChange={e => setSprintManualDay(Math.min(40, Math.max(1, Number(e.target.value))))}
+                        placeholder="1"
+                        onChange={val => setSprintManualDay(Math.min(40, Math.max(1, val || 1)))}
                       />
                     </div>
                   </div>
@@ -779,38 +780,45 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="grid-cols-4 grid-responsive-2 gap-3" style={{ marginTop: '0.75rem' }}>
                   <div>
                     <label className="label">目標熱量 (kcal)</label>
-                    <input
-                      type="number"
+                    <NumberInput
                       className="input"
                       value={customCalories}
-                      onChange={e => setCustomCalories(Number(e.target.value))}
+                      min={0}
+                      placeholder="0"
+                      onChange={setCustomCalories}
                     />
                   </div>
                   <div>
                     <label className="label">蛋白質 (g, 4kcal/g)</label>
-                    <input
-                      type="number"
+                    <NumberInput
+                      step="0.1"
                       className="input"
                       value={customProtein}
-                      onChange={e => setCustomProtein(Number(e.target.value))}
+                      min={0}
+                      placeholder="0"
+                      onChange={setCustomProtein}
                     />
                   </div>
                   <div>
                     <label className="label">碳水 (g, 4kcal/g)</label>
-                    <input
-                      type="number"
+                    <NumberInput
+                      step="0.1"
                       className="input"
                       value={customCarbs}
-                      onChange={e => setCustomCarbs(Number(e.target.value))}
+                      min={0}
+                      placeholder="0"
+                      onChange={setCustomCarbs}
                     />
                   </div>
                   <div>
                     <label className="label">脂肪 (g, 9kcal/g)</label>
-                    <input
-                      type="number"
+                    <NumberInput
+                      step="0.1"
                       className="input"
                       value={customFat}
-                      onChange={e => setCustomFat(Number(e.target.value))}
+                      min={0}
+                      placeholder="0"
+                      onChange={setCustomFat}
                     />
                   </div>
                 </div>

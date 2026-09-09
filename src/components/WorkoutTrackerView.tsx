@@ -24,6 +24,7 @@ import type {
 } from '../types';
 import { StorageService } from '../services/storage';
 import { estimateWorkoutCalories } from '../utils/nutrition';
+import { NumberInput } from './NumberInput';
 
 interface WorkoutTrackerViewProps {
   activeProfile: UserProfile;
@@ -622,39 +623,39 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                     </div>
 
                     <div>
-                      <input
-                        type="number"
+                      <NumberInput
                         step="0.5"
+                        min={0}
                         className="input"
                         style={{ textAlign: 'center', padding: '0.3rem' }}
-                        value={set.weightKg === 0 ? '' : set.weightKg}
+                        value={set.weightKg ?? 0}
                         placeholder="0"
-                        onChange={e => handleUpdateSet(exIndex, setIndex, 'weightKg', Number(e.target.value))}
+                        onChange={val => handleUpdateSet(exIndex, setIndex, 'weightKg', val)}
                       />
                     </div>
 
                     <div>
-                      <input
-                        type="number"
+                      <NumberInput
+                        step="1"
+                        min={0}
                         className="input"
                         style={{ textAlign: 'center', padding: '0.3rem' }}
-                        value={set.reps === 0 ? '' : set.reps}
+                        value={set.reps ?? 0}
                         placeholder="0"
-                        onChange={e => handleUpdateSet(exIndex, setIndex, 'reps', Number(e.target.value))}
+                        onChange={val => handleUpdateSet(exIndex, setIndex, 'reps', val)}
                       />
                     </div>
 
                     <div>
-                      <input
-                        type="number"
+                      <NumberInput
                         step="0.5"
-                        min="5"
-                        max="10"
+                        min={0}
+                        max={10}
                         className="input"
                         style={{ textAlign: 'center', padding: '0.3rem' }}
-                        value={set.rpe || ''}
-                        placeholder="選填"
-                        onChange={e => handleUpdateSet(exIndex, setIndex, 'rpe', Number(e.target.value))}
+                        value={set.rpe ?? 0}
+                        placeholder="0"
+                        onChange={val => handleUpdateSet(exIndex, setIndex, 'rpe', val)}
                       />
                     </div>
 
@@ -1211,10 +1212,9 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                   </p>
 
                   <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min="0"
-                      max="3000"
+                    <NumberInput
+                      min={0}
+                      max={3000}
                       className="input"
                       style={{
                         fontSize: '1.5rem',
@@ -1224,7 +1224,8 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
                         padding: '0.5rem'
                       }}
                       value={finishCaloriesBurned}
-                      onChange={e => setFinishCaloriesBurned(Number(e.target.value))}
+                      placeholder="0"
+                      onChange={setFinishCaloriesBurned}
                     />
                     <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)' }}>kcal</span>
                   </div>
@@ -1412,27 +1413,27 @@ export const WorkoutTrackerView: React.FC<WorkoutTrackerViewProps> = ({
 
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min="1"
-                                max="20"
+                              <NumberInput
+                                min={0}
+                                max={20}
                                 className="input"
                                 style={{ width: '55px', padding: '0.2rem 0.4rem', textAlign: 'center', fontSize: '0.85rem' }}
                                 value={re.targetSets}
-                                onChange={e => handleUpdateRoutineExerciseDraft(idx, 'targetSets', Number(e.target.value))}
+                                placeholder="0"
+                                onChange={val => handleUpdateRoutineExerciseDraft(idx, 'targetSets', val)}
                               />
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>組</span>
                             </div>
 
                             <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min="1"
-                                max="100"
+                              <NumberInput
+                                min={0}
+                                max={100}
                                 className="input"
                                 style={{ width: '55px', padding: '0.2rem 0.4rem', textAlign: 'center', fontSize: '0.85rem' }}
                                 value={re.targetReps}
-                                onChange={e => handleUpdateRoutineExerciseDraft(idx, 'targetReps', Number(e.target.value))}
+                                placeholder="0"
+                                onChange={val => handleUpdateRoutineExerciseDraft(idx, 'targetReps', val)}
                               />
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>次</span>
                             </div>

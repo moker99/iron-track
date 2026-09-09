@@ -14,14 +14,18 @@ import {
   AlertTriangle,
   BookOpen,
   Clock,
+  RefreshCw,
+  Check,
 } from 'lucide-react';
-import type { CarbCyclingPhase, FoodCategory, FoodItem, MealEntry, MealType, UserProfile, WeeklyTrainingHours } from '../types';
+import type { CarbCyclingPhase, DietProtocol, FitnessGoal, FoodCategory, FoodItem, MealEntry, MealType, UserProfile, WeeklyTrainingHours } from '../types';
 import { StorageService } from '../services/storage';
 import { getUserNutritionTargets, TAN_KNOWLEDGE, THREE_MONTHS_TABLE, THREE_MONTHS_RULES } from '../utils/nutrition';
+import { NumberInput } from './NumberInput';
 
 interface DietTrackerViewProps {
   activeProfile: UserProfile;
   onOpenProfileEdit: () => void;
+  onUpdateProfile?: (profile: UserProfile) => void;
 }
 
 const MEAL_TYPES: { type: MealType; label: string; icon: string; defaultTime: string }[] = [
@@ -44,6 +48,7 @@ const CATEGORY_NAMES: Record<FoodCategory | 'all', string> = {
 export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   activeProfile,
   onOpenProfileEdit,
+  onUpdateProfile,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -63,19 +68,19 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   // Selected Food Item to adjust portion
   const [chosenFood, setChosenFood] = useState<FoodItem | null>(null);
   const [inputMode, setInputMode] = useState<'grams' | 'servings'>('grams');
-  const [inputGrams, setInputGrams] = useState<number>(100);
-  const [servingsMultiplier, setServingsMultiplier] = useState<number>(1);
+  const [inputGrams, setInputGrams] = useState<number>(0);
+  const [servingsMultiplier, setServingsMultiplier] = useState<number>(0);
 
   // Custom Food Form
   const [customName, setCustomName] = useState('');
   const [customBasis, setCustomBasis] = useState<'per100g' | 'perServing'>('per100g');
-  const [customBaseGrams, setCustomBaseGrams] = useState<number>(100);
-  const [customCalories, setCustomCalories] = useState<number>(150);
-  const [customProtein, setCustomProtein] = useState<number>(15);
-  const [customCarbs, setCustomCarbs] = useState<number>(10);
-  const [customFat, setCustomFat] = useState<number>(3);
+  const [customBaseGrams, setCustomBaseGrams] = useState<number>(0);
+  const [customCalories, setCustomCalories] = useState<number>(0);
+  const [customProtein, setCustomProtein] = useState<number>(0);
+  const [customCarbs, setCustomCarbs] = useState<number>(0);
+  const [customFat, setCustomFat] = useState<number>(0);
   const [customServingSize, setCustomServingSize] = useState('100g');
-  const [customIntakeGrams, setCustomIntakeGrams] = useState<number>(100);
+  const [customIntakeGrams, setCustomIntakeGrams] = useState<number>(0);
 
   // 重新載入當日飲食
   const refreshMealLogs = (date: string) => {
@@ -97,6 +102,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
   const [isSprintTableModalOpen, setIsSprintTableModalOpen] = useState<boolean>(false);
   const [isThreeMonthsModalOpen, setIsThreeMonthsModalOpen] = useState<boolean>(false);
+  const [isProtocolModalOpen, setIsProtocolModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (activeProfile.carbCyclingPhase) setCurrentPhase(activeProfile.carbCyclingPhase);
@@ -104,20 +110,46 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     if (activeProfile.weeklyTrainingHours) setCurrentTrainingHours(activeProfile.weeklyTrainingHours);
   }, [activeProfile]);
 
+  const handleProtocolChange = (newProtocol: DietProtocol) => {
+    let newGoal = activeProfile.goal;
+    // 若切換到減脂方案，但先前目標為增肌，貼心同步為減脂；若切換到譚成義且先前為減脂，貼心同步為增肌
+    if ((newProtocol === 'dynamic_3months' || newProtocol === 'sprint_40d') && activeProfile.goal === 'gain_muscle') {
+      newGoal = 'lose_fat';
+    } else if (newProtocol === 'tan_carb_cycling' && activeProfile.goal === 'lose_fat') {
+      newGoal = 'gain_muscle';
+    }
+    const updated: UserProfile = { ...activeProfile, dietProtocol: newProtocol, goal: newGoal };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
+    setIsProtocolModalOpen(false);
+  };
+
+  const handleGoalChange = (newGoal: FitnessGoal) => {
+    const updated: UserProfile = { ...activeProfile, goal: newGoal };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
+  };
+
   const handlePhaseChange = (newPhase: CarbCyclingPhase) => {
     setCurrentPhase(newPhase);
-    StorageService.saveProfile({ ...activeProfile, carbCyclingPhase: newPhase });
+    const updated: UserProfile = { ...activeProfile, carbCyclingPhase: newPhase };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
   };
 
   const handleSprintDayChange = (delta: number) => {
     const next = Math.min(40, Math.max(1, currentSprintDay + delta));
     setCurrentSprintDay(next);
-    StorageService.saveProfile({ ...activeProfile, sprintManualDay: next });
+    const updated: UserProfile = { ...activeProfile, sprintManualDay: next };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
   };
 
   const handleTrainingHoursChange = (hours: WeeklyTrainingHours) => {
     setCurrentTrainingHours(hours);
-    StorageService.saveProfile({ ...activeProfile, weeklyTrainingHours: hours });
+    const updated: UserProfile = { ...activeProfile, weeklyTrainingHours: hours };
+    StorageService.saveProfile(updated);
+    onUpdateProfile?.(updated);
   };
 
   // 當日訓練消耗
@@ -362,6 +394,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setIsProtocolModalOpen(true)}
+              >
+                🔄 切換飲食方案
+              </button>
+              <button
+                type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setIsSprintTableModalOpen(true)}
               >
@@ -415,6 +454,31 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                 }}
               />
             </div>
+
+            {/* 快速直達關鍵天數 */}
+            <div className="flex items-center gap-1.5" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>快捷跳轉：</span>
+              {[1, 12, 24, 36, 40].map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`btn btn-xs ${targets.sprintInfo.day === d ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '0.2rem 0.5rem',
+                    borderColor: (d === 12 || d === 24 || d === 36) ? 'var(--neon-rose)' : undefined,
+                  }}
+                  onClick={() => {
+                    setCurrentSprintDay(d);
+                    const updated: UserProfile = { ...activeProfile, sprintManualDay: d };
+                    StorageService.saveProfile(updated);
+                    onUpdateProfile?.(updated);
+                  }}
+                >
+                  {d === 12 || d === 24 || d === 36 ? `🔥 Day ${d} 充碳` : `Day ${d}`}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* High Carb Alert or Stage Info */}
@@ -437,18 +501,16 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           ) : (
             <div style={{
               background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border-color)',
-              padding: '0.65rem 0.9rem',
+              padding: '0.65rem 0.85rem',
               borderRadius: '0.65rem',
               fontSize: '0.82rem',
-              color: 'var(--text-muted)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               flexWrap: 'wrap',
-              gap: '0.5rem',
+              gap: '0.5rem'
             }}>
-              <span>
+              <span style={{ color: 'var(--text-muted)' }}>
                 階段重點：<strong>{targets.sprintInfo.stageRange}</strong> · 係數：碳水 {targets.sprintInfo.carbRatio} · 蛋白 {targets.sprintInfo.proteinRatio} · 脂肪 {targets.sprintInfo.fatRatio} g/kg ({activeProfile.gender === 'male' ? '男性係數' : '女性係數'})。
               </span>
               <span style={{ color: 'var(--neon-rose)', fontWeight: 600 }}>
@@ -476,13 +538,22 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
               </span>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setIsKnowledgeModalOpen(true)}
-            >
-              💡 核心心法 & 補劑指南
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setIsProtocolModalOpen(true)}
+              >
+                🔄 切換飲食方案
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsKnowledgeModalOpen(true)}
+              >
+                💡 核心心法 & 補劑指南
+              </button>
+            </div>
           </div>
 
           {/* 3-Way Mode Switcher Buttons */}
@@ -547,6 +618,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setIsProtocolModalOpen(true)}
+              >
+                🔄 切換飲食方案
+              </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -616,6 +694,45 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
         </div>
       )}
 
+      {/* 方案 D: 傳統標準均衡模式 */}
+      {(!targets.protocol || targets.protocol === 'standard') && (
+        <div className="glass-card" style={{
+          background: 'rgba(6, 182, 212, 0.08)',
+          border: '1px solid rgba(6, 182, 212, 0.35)',
+        }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '1.25rem' }}>⚖️</span>
+              <div>
+                <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                  傳統標準均衡模式 (TDEE 赤字 / 盈餘計算)
+                </span>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  當前健身目標：{activeProfile.goal === 'gain_muscle' ? '增肌 (+250 kcal)' : activeProfile.goal === 'lose_fat' ? '減脂 (-300 kcal)' : '維持平衡'} · 點擊右側可切換至譚成義增肌、40天衝刺或3個月動態版
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setIsProtocolModalOpen(true)}
+              >
+                🔄 切換飲食方案
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onOpenProfileEdit}
+              >
+                ⚙️ 個人設定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Daily Macros & Calorie Summary Card */}
       <div className="glass-card glow-green">
         <div className="flex items-center justify-between flex-wrap gap-3" style={{ marginBottom: '1.25rem' }}>
@@ -623,16 +740,46 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <Flame size={22} style={{ color: 'var(--neon-green)' }} />
             <div>
               <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>今日熱量預算與三大元素分配</span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                (目標: {activeProfile.goal === 'gain_muscle' ? '增肌' : activeProfile.goal === 'lose_fat' ? '減脂' : '維持'})
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsProtocolModalOpen(true)}
+                title="點擊切換目標與方案"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  marginLeft: '0.5rem',
+                }}
+              >
+                <span
+                  className={`badge ${activeProfile.goal === 'gain_muscle' ? 'badge-green' : activeProfile.goal === 'lose_fat' ? 'badge-rose' : 'badge-cyan'}`}
+                  style={{ fontSize: '0.75rem', cursor: 'pointer' }}
+                >
+                  目標: {activeProfile.goal === 'gain_muscle' ? '💪 增肌' : activeProfile.goal === 'lose_fat' ? '🔥 減脂' : '⚖️ 維持'} (點擊調整)
+                </span>
+              </button>
             </div>
           </div>
 
-          <button className="btn btn-secondary btn-sm" onClick={onOpenProfileEdit}>
-            <Sparkles size={14} style={{ color: 'var(--neon-cyan)' }} />
-            <span>調整 TDEE 目標</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsProtocolModalOpen(true)}
+            >
+              <RefreshCw size={14} />
+              <span>切換 / 重新選擇方案</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onOpenProfileEdit}
+            >
+              <Sparkles size={14} style={{ color: 'var(--neon-cyan)' }} />
+              <span>個人體態設定 (BMR / TDEE)</span>
+            </button>
+          </div>
         </div>
 
         {/* Workout burn bonus banner */}
@@ -1106,14 +1253,14 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                                 實際秤重吃下 (公克 g):
                               </label>
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="3000"
+                                <NumberInput
+                                  min={0}
+                                  max={3000}
                                   className="input"
                                   style={{ width: '110px', textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', padding: '0.35rem' }}
-                                  value={inputGrams === 0 ? '' : inputGrams}
-                                  onChange={e => setInputGrams(Number(e.target.value))}
+                                  value={inputGrams}
+                                  placeholder="0"
+                                  onChange={setInputGrams}
                                 />
                                 <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>g (公克)</span>
                               </div>
@@ -1139,15 +1286,15 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                           <div className="flex items-center justify-between">
                             <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>份量倍數 (每份 {chosenFood.servingSize}):</label>
                             <div className="flex items-center gap-2">
-                              <input
-                                type="number"
+                              <NumberInput
                                 step="0.1"
-                                min="0.1"
-                                max="20"
+                                min={0}
+                                max={20}
                                 className="input"
                                 style={{ width: '90px', textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', padding: '0.35rem' }}
                                 value={servingsMultiplier}
-                                onChange={e => setServingsMultiplier(Number(e.target.value))}
+                                placeholder="0"
+                                onChange={setServingsMultiplier}
                               />
                               <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>份</span>
                             </div>
@@ -1247,12 +1394,12 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                     {customBasis === 'perServing' && (
                       <div>
                         <label className="label">每份重量 (公克 g，便於日後秤重換算)</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           className="input"
-                          placeholder="例如: 45"
+                          placeholder="0"
+                          min={0}
                           value={customBaseGrams}
-                          onChange={e => setCustomBaseGrams(Number(e.target.value))}
+                          onChange={setCustomBaseGrams}
                         />
                       </div>
                     )}
@@ -1266,45 +1413,45 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                     <div className="grid-cols-4 grid-responsive-2 gap-3">
                       <div>
                         <label className="label">熱量 (kcal)</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           className="input"
                           value={customCalories}
-                          onChange={e => setCustomCalories(Number(e.target.value))}
-                          required
+                          min={0}
+                          placeholder="0"
+                          onChange={setCustomCalories}
                         />
                       </div>
                       <div>
                         <label className="label">蛋白質 (g)</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           step="0.1"
                           className="input"
                           value={customProtein}
-                          onChange={e => setCustomProtein(Number(e.target.value))}
-                          required
+                          min={0}
+                          placeholder="0"
+                          onChange={setCustomProtein}
                         />
                       </div>
                       <div>
                         <label className="label">碳水 (g)</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           step="0.1"
                           className="input"
                           value={customCarbs}
-                          onChange={e => setCustomCarbs(Number(e.target.value))}
-                          required
+                          min={0}
+                          placeholder="0"
+                          onChange={setCustomCarbs}
                         />
                       </div>
                       <div>
                         <label className="label">脂肪 (g)</label>
-                        <input
-                          type="number"
+                        <NumberInput
                           step="0.1"
                           className="input"
                           value={customFat}
-                          onChange={e => setCustomFat(Number(e.target.value))}
-                          required
+                          min={0}
+                          placeholder="0"
+                          onChange={setCustomFat}
                         />
                       </div>
                     </div>
@@ -1338,14 +1485,14 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                         本次吃下的實際重量 (公克 g):
                       </label>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          max="3000"
+                        <NumberInput
+                          min={0}
+                          max={3000}
                           className="input"
                           style={{ width: '100px', textAlign: 'center', fontWeight: 800, fontSize: '1rem', padding: '0.3rem' }}
                           value={customIntakeGrams}
-                          onChange={e => setCustomIntakeGrams(Number(e.target.value))}
+                          placeholder="0"
+                          onChange={setCustomIntakeGrams}
                         />
                         <span style={{ fontWeight: 600 }}>g</span>
                       </div>
@@ -1748,6 +1895,231 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setIsKnowledgeModalOpen(false)}>
                 了解並關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: 切換 / 重新選擇飲食方案 ==================== */}
+      {isProtocolModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={20} style={{ color: 'var(--neon-green)' }} />
+                <div>
+                  <h3 className="modal-title">切換 / 重新選擇飲食方案</h3>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    若先前選錯或想嘗試不同階段週期，可隨時在此一鍵無痛切換
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setIsProtocolModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              {/* 目標快速切換 (增肌 / 減脂 / 維持) */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border-color)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+              }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    🎯 當前體態目標：
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    (點擊即可即時調整目標)
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  {(['gain_muscle', 'lose_fat', 'maintain'] as FitnessGoal[]).map(g => (
+                    <button
+                      key={g}
+                      type="button"
+                      className={`btn btn-sm ${activeProfile.goal === g ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ justifyContent: 'center', fontSize: '0.82rem' }}
+                      onClick={() => handleGoalChange(g)}
+                    >
+                      {g === 'gain_muscle' ? '💪 增肌 (+250 kcal)' : g === 'lose_fat' ? '🔥 減脂 (-300 kcal)' : '⚖️ 維持體態'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 四大方案卡片列表 */}
+              <div className="flex flex-col gap-3">
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  選擇主要執行的飲食方案 (點選任一卡片立即生效)：
+                </div>
+
+                {/* 1. 譚成義動態碳水循環 */}
+                <div
+                  onClick={() => handleProtocolChange('tan_carb_cycling')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    background: (targets.protocol === 'tan_carb_cycling') ? 'rgba(0, 245, 155, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1.5px solid ${(targets.protocol === 'tan_carb_cycling') ? 'var(--neon-green)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: '1.25rem' }}>🍚</span>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: targets.protocol === 'tan_carb_cycling' ? 'var(--neon-green)' : 'var(--text-main)' }}>
+                          譚成義 · 焚訣動態碳水循環法
+                        </span>
+                        <span className="badge badge-green" style={{ marginLeft: '0.5rem', fontSize: '0.68rem' }}>
+                          增肌 / 體態重組首選
+                        </span>
+                      </div>
+                    </div>
+                    {targets.protocol === 'tan_carb_cycling' ? (
+                      <span className="badge badge-green flex items-center gap-1" style={{ fontSize: '0.75rem' }}>
+                        <Check size={12} /> 目前使用中
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>點擊套用</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, paddingLeft: '1.8rem' }}>
+                    基數碳水 2.5~3.5 g/kg · 蛋白 1.2~2.0 g/kg。平時保持微飢餓感抗炎；訓練強日高碳 +0.5倍降蛋白；休息日低碳 -0.5倍增蛋白。
+                  </div>
+                </div>
+
+                {/* 2. 40 天固定衝刺階段表 */}
+                <div
+                  onClick={() => handleProtocolChange('sprint_40d')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    background: (targets.protocol === 'sprint_40d') ? 'rgba(244, 63, 94, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1.5px solid ${(targets.protocol === 'sprint_40d') ? 'var(--neon-rose)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: '1.25rem' }}>⚡</span>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: targets.protocol === 'sprint_40d' ? 'var(--neon-rose)' : 'var(--text-main)' }}>
+                          40 天固定衝刺階段表
+                        </span>
+                        <span className="badge badge-rose" style={{ marginLeft: '0.5rem', fontSize: '0.68rem' }}>
+                          男女極速減脂 · 40天週期
+                        </span>
+                      </div>
+                    </div>
+                    {targets.protocol === 'sprint_40d' ? (
+                      <span className="badge badge-rose flex items-center gap-1" style={{ fontSize: '0.75rem' }}>
+                        <Check size={12} /> 目前使用中
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>點擊套用</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, paddingLeft: '1.8rem' }}>
+                    分男/女階梯係數與嚴格天數表；第 12、24、36 天為高碳充碳日 (Refeed Day) 喚醒瘦素與代謝，突破停滯期。
+                  </div>
+                </div>
+
+                {/* 3. 三個月動態減脂方案 */}
+                <div
+                  onClick={() => handleProtocolChange('dynamic_3months')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    background: (targets.protocol === 'dynamic_3months') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1.5px solid ${(targets.protocol === 'dynamic_3months') ? 'var(--neon-purple)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: '1.25rem' }}>⏱️</span>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: targets.protocol === 'dynamic_3months' ? 'var(--neon-purple)' : 'var(--text-main)' }}>
+                          三個月動態減脂方案
+                        </span>
+                        <span className="badge badge-purple" style={{ marginLeft: '0.5rem', fontSize: '0.68rem' }}>
+                          每週訓練時數起點
+                        </span>
+                      </div>
+                    </div>
+                    {targets.protocol === 'dynamic_3months' ? (
+                      <span className="badge badge-purple flex items-center gap-1" style={{ fontSize: '0.75rem' }}>
+                        <Check size={12} /> 目前使用中
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>點擊套用</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, paddingLeft: '1.8rem' }}>
+                    以每週運動時數（2-3h / 4-5h / 6-7h / 8-9h）為起點精算碳水/蛋白/脂肪；男女專屬對照係數，執行7-10天看體態反饋微調。
+                  </div>
+                </div>
+
+                {/* 4. 傳統標準均衡模式 */}
+                <div
+                  onClick={() => handleProtocolChange('standard')}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    background: (targets.protocol === 'standard') ? 'rgba(6, 182, 212, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1.5px solid ${(targets.protocol === 'standard') ? 'var(--neon-cyan)' : 'var(--border-color)'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: '1.25rem' }}>⚖️</span>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: targets.protocol === 'standard' ? 'var(--neon-cyan)' : 'var(--text-main)' }}>
+                          傳統標準均衡模式
+                        </span>
+                        <span className="badge badge-cyan" style={{ marginLeft: '0.5rem', fontSize: '0.68rem' }}>
+                          BMR / TDEE 自由加減
+                        </span>
+                      </div>
+                    </div>
+                    {targets.protocol === 'standard' ? (
+                      <span className="badge badge-cyan flex items-center gap-1" style={{ fontSize: '0.75rem' }}>
+                        <Check size={12} /> 目前使用中
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>點擊套用</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, paddingLeft: '1.8rem' }}>
+                    Mifflin-St Jeor 經典算式，依基礎代謝 BMR 與活動度計算 TDEE，支援手動微調與自訂宏量熱量。
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setIsProtocolModalOpen(false);
+                  onOpenProfileEdit();
+                }}
+              >
+                ⚙️ 編輯完整個人資料 (身高/體重/性別/年齡)
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsProtocolModalOpen(false)}>
+                關閉視窗
               </button>
             </div>
           </div>

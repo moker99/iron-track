@@ -161,6 +161,7 @@ export const App: React.FC = () => {
           <DietTrackerView
             activeProfile={activeProfile}
             onOpenProfileEdit={() => handleOpenEditProfile(activeProfile)}
+            onUpdateProfile={handleSaveProfile}
           />
         )}
 
