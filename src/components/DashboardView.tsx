@@ -93,6 +93,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="badge badge-green">
               {activeProfile.goal === 'gain_muscle' ? '增肌強壯' : activeProfile.goal === 'lose_fat' ? '減脂雕塑' : '體態維持'}
             </span>
+            {targets.protocol === 'sprint_40d' && (
+              <span className={`badge ${targets.sprintInfo?.isHighCarb ? 'badge-rose' : 'badge-cyan'}`}>
+                ⚡ 40天衝刺 Day {targets.sprintInfo?.day} {targets.sprintInfo?.isHighCarb ? '🔥高碳' : ''}
+              </span>
+            )}
+            {targets.protocol === 'tan_carb_cycling' && (
+              <span className="badge badge-purple">
+                🍚 碳水循環 ({targets.carbCyclingInfo?.phase === 'high_carb' ? '高碳' : targets.carbCyclingInfo?.phase === 'low_carb' ? '低碳' : '基準'})
+              </span>
+            )}
+            {targets.protocol === 'dynamic_3months' && (
+              <span className="badge badge-cyan">
+                📅 3個月動態 Week {targets.threeMonthsInfo?.week}
+              </span>
+            )}
           </div>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{greeting}</p>
         </div>
@@ -116,6 +131,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2">
             <Flame size={22} style={{ color: 'var(--neon-green)' }} />
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>今日熱量與三大營養素進度</h2>
+            {targets.sprintInfo && (
+              <span className={`badge ${targets.sprintInfo.isHighCarb ? 'badge-rose' : 'badge-green'}`} style={{ fontSize: '0.72rem' }}>
+                {targets.sprintInfo.stageName}
+              </span>
+            )}
+            {targets.carbCyclingInfo && (
+              <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>
+                {targets.carbCyclingInfo.phaseLabel}
+              </span>
+            )}
           </div>
 
           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--neon-green)' }} onClick={() => onNavigate('diet')}>

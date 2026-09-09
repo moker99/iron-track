@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Sparkles, User } from 'lucide-react';
-import type { ActivityLevel, FitnessGoal, Gender, UserProfile } from '../types';
+import { X, Sparkles, User, Flame } from 'lucide-react';
+import type { ActivityLevel, FitnessGoal, Gender, UserProfile, DietProtocol, CarbCyclingPhase } from '../types';
 import {
   ACTIVITY_MULTIPLIERS,
   calculateBMI,
@@ -8,6 +8,9 @@ import {
   calculateRecommendedMacros,
   calculateTDEE,
   GOAL_CONFIGS,
+  getSprint40DayConfig,
+  getTanCarbCyclingConfig,
+  getThreeMonthsConfig,
 } from '../utils/nutrition';
 
 interface ProfileModalProps {
@@ -34,6 +37,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [role, setRole] = useState<'admin' | 'member'>(profile?.role || 'member');
   const [pinCode, setPinCode] = useState<string>(profile?.pinCode || (role === 'admin' ? '8888' : '1234'));
 
+  // 飲食方案策略
+  const [dietProtocol, setDietProtocol] = useState<DietProtocol>(profile?.dietProtocol || 'tan_carb_cycling');
+  const [carbCyclingPhase, setCarbCyclingPhase] = useState<CarbCyclingPhase>(profile?.carbCyclingPhase || 'baseline');
+  const [sprintStartDate, setSprintStartDate] = useState<string>(
+    profile?.sprintStartDate || new Date().toISOString().split('T')[0]
+  );
+  const [sprintManualDay, setSprintManualDay] = useState<number>(profile?.sprintManualDay || 1);
+  const [threeMonthsStartDate, setThreeMonthsStartDate] = useState<string>(
+    profile?.threeMonthsStartDate || new Date().toISOString().split('T')[0]
+  );
+  const [threeMonthsManualWeek, setThreeMonthsManualWeek] = useState<number>(profile?.threeMonthsManualWeek || 1);
+
   const [useCustomMacros, setUseCustomMacros] = useState<boolean>(Boolean(profile?.customCalories));
   const [customCalories, setCustomCalories] = useState<number>(profile?.customCalories || 2400);
   const [customProtein, setCustomProtein] = useState<number>(profile?.customProteinGrams || 140);
@@ -55,11 +70,83 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     return calculateRecommendedMacros(targetCals, weightKg, goal);
   }, [useCustomMacros, customCalories, autoTargetCals, weightKg, goal]);
 
+  // 依據選擇的飲食方案即時計算三大營養素目標
+  const liveProtocolTargets = useMemo(() => {
+    if (dietProtocol === 'sprint_40d') {
+      const sprint = getSprint40DayConfig(sprintManualDay, gender);
+      const p = Math.round(weightKg * sprint.proteinRatio);
+      const c = Math.round(weightKg * sprint.carbRatio);
+      const f = Math.round(weightKg * sprint.fatRatio);
+      const calories = (p * 4) + (c * 4) + (f * 9);
+      return {
+        calories,
+        protein: p,
+        carbs: c,
+        fat: f,
+        title: `40天固定衝刺 · 第 ${sprintManualDay} 天 (${sprint.stageName})`,
+        notes: sprint.notes,
+        isHighCarb: sprint.isHighCarb,
+      };
+    }
+    if (dietProtocol === 'tan_carb_cycling') {
+      const cycle = getTanCarbCyclingConfig(carbCyclingPhase);
+      const p = Math.round(weightKg * cycle.proteinRatio);
+      const c = Math.round(weightKg * cycle.carbRatio);
+      const f = Math.round(weightKg * cycle.fatRatio);
+      const calories = (p * 4) + (c * 4) + (f * 9);
+      return {
+        calories,
+        protein: p,
+        carbs: c,
+        fat: f,
+        title: `譚成義 · 焚訣動態碳水循環 (${cycle.phaseLabel})`,
+        notes: `${cycle.mindsetAdvice} (${cycle.cardioAdvice})`,
+        isHighCarb: carbCyclingPhase === 'high_carb',
+      };
+    }
+    if (dietProtocol === 'dynamic_3months') {
+      const tm = getThreeMonthsConfig(threeMonthsManualWeek, gender);
+      const p = Math.round(weightKg * tm.proteinRatio);
+      const c = Math.round(weightKg * tm.carbRatio);
+      const f = Math.round(weightKg * tm.fatRatio);
+      const calories = (p * 4) + (c * 4) + (f * 9);
+      return {
+        calories,
+        protein: p,
+        carbs: c,
+        fat: f,
+        title: `三個月動態減脂 · 第 ${threeMonthsManualWeek} 週 (${tm.stageName})`,
+        notes: tm.notes,
+        isHighCarb: tm.isDietBreakWeek,
+      };
+    }
+    // standard
+    return {
+      calories: autoTargetCals,
+      protein: recommendedMacros.proteinGrams,
+      carbs: recommendedMacros.carbsGrams,
+      fat: recommendedMacros.fatGrams,
+      title: '傳統標準均衡模式 (BMR / TDEE)',
+      notes: GOAL_CONFIGS[goal].desc,
+      isHighCarb: false,
+    };
+  }, [
+    dietProtocol,
+    sprintManualDay,
+    carbCyclingPhase,
+    threeMonthsManualWeek,
+    gender,
+    weightKg,
+    autoTargetCals,
+    recommendedMacros,
+    goal,
+  ]);
+
   const handleApplyRecommended = () => {
-    setCustomCalories(autoTargetCals);
-    setCustomProtein(recommendedMacros.proteinGrams);
-    setCustomCarbs(recommendedMacros.carbsGrams);
-    setCustomFat(recommendedMacros.fatGrams);
+    setCustomCalories(liveProtocolTargets.calories);
+    setCustomProtein(liveProtocolTargets.protein);
+    setCustomCarbs(liveProtocolTargets.carbs);
+    setCustomFat(liveProtocolTargets.fat);
     setUseCustomMacros(false);
   };
 
@@ -79,10 +166,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       goal,
       role,
       pinCode: pinCode.trim() || (role === 'admin' ? '8888' : '1234'),
-      customCalories: useCustomMacros ? Number(customCalories) : autoTargetCals,
-      customProteinGrams: useCustomMacros ? Number(customProtein) : recommendedMacros.proteinGrams,
-      customCarbsGrams: useCustomMacros ? Number(customCarbs) : recommendedMacros.carbsGrams,
-      customFatGrams: useCustomMacros ? Number(customFat) : recommendedMacros.fatGrams,
+
+      dietProtocol,
+      carbCyclingPhase,
+      sprintStartDate,
+      sprintManualDay: Number(sprintManualDay),
+      threeMonthsStartDate,
+      threeMonthsManualWeek: Number(threeMonthsManualWeek),
+
+      customCalories: useCustomMacros ? Number(customCalories) : liveProtocolTargets.calories,
+      customProteinGrams: useCustomMacros ? Number(customProtein) : liveProtocolTargets.protein,
+      customCarbsGrams: useCustomMacros ? Number(customCarbs) : liveProtocolTargets.carbs,
+      customFatGrams: useCustomMacros ? Number(customFat) : liveProtocolTargets.fat,
       createdAt: profile?.createdAt || new Date().toISOString(),
     };
 
@@ -305,6 +400,237 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
+            {/* Diet Protocol Strategy Selector */}
+            <div style={{
+              background: 'rgba(18, 26, 43, 0.7)',
+              padding: '1rem',
+              borderRadius: '0.85rem',
+              border: '1px solid var(--border-color)',
+            }}>
+              <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem' }}>
+                <div className="flex items-center gap-2">
+                  <Flame size={18} style={{ color: 'var(--neon-green)' }} />
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                    飲食計劃與體態策略 (Diet Protocol)
+                  </span>
+                </div>
+                <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
+                  科學化係數
+                </span>
+              </div>
+
+              {/* Protocol Grid Selection */}
+              <div className="flex flex-col gap-2.5">
+                {/* 1. 譚成義 · 焚訣動態碳水循環 */}
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.75rem',
+                    background: dietProtocol === 'tan_carb_cycling' ? 'rgba(0, 245, 155, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1px solid ${dietProtocol === 'tan_carb_cycling' ? 'var(--neon-green)' : 'var(--border-color)'}`,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                  }}
+                  onClick={() => setDietProtocol('tan_carb_cycling')}
+                >
+                  <div className="flex items-center justify-between" style={{ width: '100%', marginBottom: '0.2rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: dietProtocol === 'tan_carb_cycling' ? 'var(--neon-green)' : 'var(--text-main)' }}>
+                      🍚 譚成義 · 焚訣動態碳水循環 (增肌 / 增肌減脂同步)
+                    </span>
+                    {dietProtocol === 'tan_carb_cycling' && <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>已選擇</span>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    基數：碳水 2.5~3.5 g/kg · 蛋白 1.2~2.0 g/kg · 脂肪 0.6~0.8 g/kg。平時保持微飢餓感抗炎，訓練高碳日 +0.5倍降蛋白，休息低碳日 -0.5倍增蛋白。
+                  </div>
+                </button>
+
+                {/* 2. 40 天固定衝刺階段表 */}
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.75rem',
+                    background: dietProtocol === 'sprint_40d' ? 'rgba(244, 63, 94, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1px solid ${dietProtocol === 'sprint_40d' ? 'var(--neon-rose)' : 'var(--border-color)'}`,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                  }}
+                  onClick={() => setDietProtocol('sprint_40d')}
+                >
+                  <div className="flex items-center justify-between" style={{ width: '100%', marginBottom: '0.2rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: dietProtocol === 'sprint_40d' ? 'var(--neon-rose)' : 'var(--text-main)' }}>
+                      ⚡ 40 天固定衝刺階段表 (分男/女階梯式極速減脂)
+                    </span>
+                    {dietProtocol === 'sprint_40d' && <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>已選擇</span>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    獨立 40 天嚴格階段表：男/女脂肪係數差異 (0.4 vs 0.5~0.6)，第 12、24、36 天為高碳充碳日 (喚醒代謝與瘦素，嚴禁放縱)。
+                  </div>
+                </button>
+
+                {/* 3. 三個月動態減脂方案 */}
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.75rem',
+                    background: dietProtocol === 'dynamic_3months' ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1px solid ${dietProtocol === 'dynamic_3months' ? 'var(--neon-purple)' : 'var(--border-color)'}`,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                  }}
+                  onClick={() => setDietProtocol('dynamic_3months')}
+                >
+                  <div className="flex items-center justify-between" style={{ width: '100%', marginBottom: '0.2rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: dietProtocol === 'dynamic_3months' ? 'var(--neon-purple)' : 'var(--text-main)' }}>
+                      📅 三個月動態減脂方案 (12 週長期週期化)
+                    </span>
+                    {dietProtocol === 'dynamic_3months' && <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>已選擇</span>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    分 3 大週期：第 1 個月代謝啟動、第 2 個月深化燃脂 (含 Week 8 Diet Break)、第 3 個月塑形突破 (Week 12 結算)。
+                  </div>
+                </button>
+
+                {/* 4. 傳統標準均衡模式 */}
+                <button
+                  type="button"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.75rem',
+                    background: dietProtocol === 'standard' ? 'rgba(6, 182, 212, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1px solid ${dietProtocol === 'standard' ? 'var(--neon-cyan)' : 'var(--border-color)'}`,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                  }}
+                  onClick={() => setDietProtocol('standard')}
+                >
+                  <div className="flex items-center justify-between" style={{ width: '100%', marginBottom: '0.2rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: dietProtocol === 'standard' ? 'var(--neon-cyan)' : 'var(--text-main)' }}>
+                      ⚖️ 傳統標準均衡模式 (BMR / TDEE 熱量赤字/盈餘)
+                    </span>
+                    {dietProtocol === 'standard' && <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>已選擇</span>}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    依據 Mifflin-St Jeor 公式計算 TDEE，手動或自動加減熱量缺口與傳統三大元素比例。
+                  </div>
+                </button>
+              </div>
+
+              {/* Protocol Contextual Controls */}
+              {dietProtocol === 'sprint_40d' && (
+                <div style={{ marginTop: '0.85rem', background: 'rgba(244, 63, 94, 0.06)', border: '1px solid rgba(244, 63, 94, 0.2)', padding: '0.75rem', borderRadius: '0.6rem' }}>
+                  <div className="grid-cols-2 grid-responsive-2 gap-3">
+                    <div>
+                      <label className="label">衝刺起始日 (Day 1)</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={sprintStartDate}
+                        onChange={e => setSprintStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">手動指定當前天數 (1~40 天)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={40}
+                        className="input"
+                        value={sprintManualDay}
+                        onChange={e => setSprintManualDay(Math.min(40, Math.max(1, Number(e.target.value))))}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--neon-rose)', marginTop: '0.4rem' }}>
+                    🔥 提醒：第 12、24、36 天為高碳充碳日！當前性別：{gender === 'male' ? '男 (脂肪係數 0.4~0.5)' : '女 (脂肪係數 0.5~0.6)'}。
+                  </div>
+                </div>
+              )}
+
+              {dietProtocol === 'tan_carb_cycling' && (
+                <div style={{ marginTop: '0.85rem', background: 'rgba(0, 245, 155, 0.06)', border: '1px solid rgba(0, 245, 155, 0.2)', padding: '0.75rem', borderRadius: '0.6rem' }}>
+                  <label className="label">預設初始日常狀態</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${carbCyclingPhase === 'baseline' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setCarbCyclingPhase('baseline')}
+                    >
+                      🍚 基準日 (3.0g/kg)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${carbCyclingPhase === 'high_carb' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setCarbCyclingPhase('high_carb')}
+                    >
+                      🚀 高碳日 (+0.5倍)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${carbCyclingPhase === 'low_carb' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setCarbCyclingPhase('low_carb')}
+                    >
+                      🛡️ 休息低碳 (-0.5倍)
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--neon-green)', marginTop: '0.4rem' }}>
+                    💡 提示：平時在「飲食追蹤」頁面可隨時一鍵無延遲切換當天狀態！
+                  </div>
+                </div>
+              )}
+
+              {dietProtocol === 'dynamic_3months' && (
+                <div style={{ marginTop: '0.85rem', background: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.2)', padding: '0.75rem', borderRadius: '0.6rem' }}>
+                  <div className="grid-cols-2 grid-responsive-2 gap-3">
+                    <div>
+                      <label className="label">三個月計劃起始日</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={threeMonthsStartDate}
+                        onChange={e => setThreeMonthsStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">當前進行週數 (1~12 週)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        className="input"
+                        value={threeMonthsManualWeek}
+                        onChange={e => setThreeMonthsManualWeek(Math.min(12, Math.max(1, Number(e.target.value))))}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--neon-purple)', marginTop: '0.4rem' }}>
+                    📅 提示：Week 8 為飲食重置週 (Diet Break)；Week 12 為衝刺結算週。
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Real-time Calculation Summary Card */}
             <div style={{
               background: 'rgba(0, 245, 155, 0.05)',
@@ -316,7 +642,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} style={{ color: 'var(--neon-green)' }} />
                   <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--neon-green)' }}>
-                    科學健康指標即時試算 (Mifflin-St Jeor)
+                    當前方案目標試算：{liveProtocolTargets.title}
                   </span>
                 </div>
                 <span className={`badge ${liveBMI.color.replace('text-', 'badge-')}`}>
@@ -324,31 +650,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </span>
               </div>
 
-              <div className="grid-cols-3 grid-responsive-3 gap-3" style={{ textAlign: 'center' }}>
+              <div className="grid-cols-4 grid-responsive-2 gap-3" style={{ textAlign: 'center' }}>
                 <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.6rem', borderRadius: '0.6rem' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>基礎代謝 BMR</div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>{liveBMR} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>kcal</span></div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>目標熱量</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-green)' }}>
+                    {liveProtocolTargets.calories} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>kcal</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>TDEE {liveTDEE}</div>
                 </div>
 
                 <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.6rem', borderRadius: '0.6rem' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>總熱量消耗 TDEE</div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--neon-cyan)' }}>{liveTDEE} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>kcal</span></div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>蛋白質 (4k/g)</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-emerald)' }}>
+                    {liveProtocolTargets.protein} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>g</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    {weightKg > 0 ? (liveProtocolTargets.protein / weightKg).toFixed(1) : 0} g/kg
+                  </div>
                 </div>
 
                 <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.6rem', borderRadius: '0.6rem' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>建議目標熱量</div>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--neon-green)' }}>{autoTargetCals} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>kcal</span></div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>碳水 (4k/g)</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-cyan)' }}>
+                    {liveProtocolTargets.carbs} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>g</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    {weightKg > 0 ? (liveProtocolTargets.carbs / weightKg).toFixed(1) : 0} g/kg
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(12, 19, 34, 0.6)', padding: '0.6rem', borderRadius: '0.6rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>脂肪 (9k/g)</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--neon-amber)' }}>
+                    {liveProtocolTargets.fat} <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>g</span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                    {weightKg > 0 ? (liveProtocolTargets.fat / weightKg).toFixed(1) : 0} g/kg
+                  </div>
                 </div>
               </div>
 
-              {/* Recommended Macros Preview */}
-              <div style={{ marginTop: '0.75rem', fontSize: '0.8rem' }} className="flex justify-between items-center text-muted">
-                <span>建議三大營養素配比：</span>
-                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>
-                  蛋白質 <strong style={{ color: 'var(--neon-emerald)' }}>{recommendedMacros.proteinGrams}g</strong> · 
-                  碳水 <strong style={{ color: 'var(--neon-cyan)' }}>{recommendedMacros.carbsGrams}g</strong> · 
-                  脂肪 <strong style={{ color: 'var(--neon-amber)' }}>{recommendedMacros.fatGrams}g</strong>
-                </span>
+              {/* Protocol Advice / Notes */}
+              <div style={{
+                marginTop: '0.75rem',
+                fontSize: '0.78rem',
+                color: 'var(--text-muted)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '0.5rem',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                📌 <strong>執行要點</strong>：{liveProtocolTargets.notes}
               </div>
             </div>
 

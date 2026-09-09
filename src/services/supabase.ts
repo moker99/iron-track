@@ -28,15 +28,19 @@ const STORAGE_KEYS = {
  */
 export function getCloudConfig(): CloudConfig {
   try {
+    const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+    const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+
     const data = localStorage.getItem(STORAGE_KEYS.CLOUD_CONFIG);
     if (data) {
       const parsed = JSON.parse(data);
       if (parsed.supabaseUrl && parsed.supabaseAnonKey) {
-        return parsed;
+        return {
+          ...parsed,
+          syncEnabled: parsed.syncEnabled !== false,
+        };
       }
     }
-    const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-    const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
     return {
       supabaseUrl: envUrl,
       supabaseAnonKey: envKey,
@@ -131,6 +135,12 @@ export class SupabaseSyncService {
             goal: p.goal || 'maintain',
             role: p.role || 'member',
             pinCode: p.pin_code || (p.role === 'admin' ? '8888' : '1234'),
+            dietProtocol: p.diet_protocol || 'standard',
+            carbCyclingPhase: p.carb_cycling_phase || 'baseline',
+            sprintStartDate: p.sprint_start_date || undefined,
+            sprintManualDay: p.sprint_manual_day ? Number(p.sprint_manual_day) : undefined,
+            threeMonthsStartDate: p.three_months_start_date || undefined,
+            threeMonthsManualWeek: p.three_months_manual_week ? Number(p.three_months_manual_week) : undefined,
             customCalories: p.custom_calories ? Number(p.custom_calories) : undefined,
             customProteinGrams: p.custom_protein_grams ? Number(p.custom_protein_grams) : undefined,
             customCarbsGrams: p.custom_carbs_grams ? Number(p.custom_carbs_grams) : undefined,
@@ -290,7 +300,7 @@ export class SupabaseSyncService {
     const client = getSupabaseClient();
     if (!client) return;
     try {
-      await client.from('profiles').upsert({
+      const fullPayload: Record<string, any> = {
         id: profile.id,
         name: profile.name,
         avatar: profile.avatar,
@@ -302,12 +312,42 @@ export class SupabaseSyncService {
         goal: profile.goal,
         role: profile.role || 'member',
         pin_code: profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
+        diet_protocol: profile.dietProtocol || 'standard',
+        carb_cycling_phase: profile.carbCyclingPhase || 'baseline',
+        sprint_start_date: profile.sprintStartDate || null,
+        sprint_manual_day: profile.sprintManualDay || null,
+        three_months_start_date: profile.threeMonthsStartDate || null,
+        three_months_manual_week: profile.threeMonthsManualWeek || null,
         custom_calories: profile.customCalories || null,
         custom_protein_grams: profile.customProteinGrams || null,
         custom_carbs_grams: profile.customCarbsGrams || null,
         custom_fat_grams: profile.customFatGrams || null,
         target_weight_kg: profile.targetWeightKg || null,
-      });
+      };
+
+      const { error } = await client.from('profiles').upsert(fullPayload);
+      if (error) {
+        // 若雲端資料表尚未建立新欄位，自動降級儲存核心欄位，避免阻斷操作
+        const fallbackPayload = {
+          id: profile.id,
+          name: profile.name,
+          avatar: profile.avatar,
+          gender: profile.gender,
+          age: profile.age,
+          height_cm: profile.heightCm,
+          weight_kg: profile.weightKg,
+          activity_level: profile.activityLevel,
+          goal: profile.goal,
+          role: profile.role || 'member',
+          pin_code: profile.pinCode || (profile.role === 'admin' ? '8888' : '1234'),
+          custom_calories: profile.customCalories || null,
+          custom_protein_grams: profile.customProteinGrams || null,
+          custom_carbs_grams: profile.customCarbsGrams || null,
+          custom_fat_grams: profile.customFatGrams || null,
+          target_weight_kg: profile.targetWeightKg || null,
+        };
+        await client.from('profiles').upsert(fallbackPayload);
+      }
     } catch (e) {
       console.error('pushProfile to Supabase failed:', e);
     }
@@ -481,6 +521,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   goal TEXT,
   role TEXT DEFAULT 'member',
   pin_code TEXT DEFAULT '1234',
+  diet_protocol TEXT DEFAULT 'standard',
+  carb_cycling_phase TEXT DEFAULT 'baseline',
+  sprint_start_date TEXT,
+  sprint_manual_day INTEGER,
+  three_months_start_date TEXT,
+  three_months_manual_week INTEGER,
   custom_calories INTEGER,
   custom_protein_grams INTEGER,
   custom_carbs_grams INTEGER,
@@ -488,6 +534,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   target_weight_kg NUMERIC,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- 若您先前已建立過 profiles 資料表，請執行此段升級語法：
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS diet_protocol TEXT DEFAULT 'standard';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS carb_cycling_phase TEXT DEFAULT 'baseline';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sprint_start_date TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sprint_manual_day INTEGER;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS three_months_start_date TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS three_months_manual_week INTEGER;
 
 -- 2. 飲食紀錄表
 CREATE TABLE IF NOT EXISTS public.meal_entries (

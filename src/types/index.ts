@@ -3,6 +3,10 @@ export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very_active' |
 export type FitnessGoal = 'lose_fat' | 'maintain' | 'gain_muscle';
 export type UserRole = 'admin' | 'member';
 
+// 體態與飲食方案類型
+export type DietProtocol = 'standard' | 'tan_carb_cycling' | 'sprint_40d' | 'dynamic_3months';
+export type CarbCyclingPhase = 'baseline' | 'high_carb' | 'low_carb';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -15,6 +19,15 @@ export interface UserProfile {
   goal: FitnessGoal;
   role?: UserRole;
   pinCode?: string;
+
+  // 飲食計劃模式與參數
+  dietProtocol?: DietProtocol;
+  carbCyclingPhase?: CarbCyclingPhase;
+  sprintStartDate?: string;       // 40天衝刺開始日期 (YYYY-MM-DD)
+  sprintManualDay?: number;       // 40天衝刺手動指定天數 (1~40)
+  threeMonthsStartDate?: string;  // 3個月動態開始日期 (YYYY-MM-DD)
+  threeMonthsManualWeek?: number; // 3個月動態手動指定週數 (1~12)
+
   customCalories?: number;
   customProteinGrams?: number;
   customCarbsGrams?: number;

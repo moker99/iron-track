@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Utensils,
   Plus,
@@ -9,11 +9,14 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Zap,
+  AlertTriangle,
+  BookOpen,
 } from 'lucide-react';
-import type { FoodCategory, FoodItem, MealEntry, MealType, UserProfile } from '../types';
+import type { CarbCyclingPhase, FoodCategory, FoodItem, MealEntry, MealType, UserProfile } from '../types';
 import { StorageService } from '../services/storage';
-import { getUserNutritionTargets } from '../utils/nutrition';
+import { getUserNutritionTargets, TAN_KNOWLEDGE } from '../utils/nutrition';
 
 interface DietTrackerViewProps {
   activeProfile: UserProfile;
@@ -86,6 +89,36 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     refreshMealLogs(newDateStr);
   };
 
+  // 飲食計劃模式與當前進程狀態
+  const [currentPhase, setCurrentPhase] = useState<CarbCyclingPhase>(activeProfile.carbCyclingPhase || 'baseline');
+  const [currentSprintDay, setCurrentSprintDay] = useState<number>(activeProfile.sprintManualDay || 1);
+  const [currentThreeMonthsWeek, setCurrentThreeMonthsWeek] = useState<number>(activeProfile.threeMonthsManualWeek || 1);
+  const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
+  const [isSprintTableModalOpen, setIsSprintTableModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeProfile.carbCyclingPhase) setCurrentPhase(activeProfile.carbCyclingPhase);
+    if (activeProfile.sprintManualDay) setCurrentSprintDay(activeProfile.sprintManualDay);
+    if (activeProfile.threeMonthsManualWeek) setCurrentThreeMonthsWeek(activeProfile.threeMonthsManualWeek);
+  }, [activeProfile]);
+
+  const handlePhaseChange = (newPhase: CarbCyclingPhase) => {
+    setCurrentPhase(newPhase);
+    StorageService.saveProfile({ ...activeProfile, carbCyclingPhase: newPhase });
+  };
+
+  const handleSprintDayChange = (delta: number) => {
+    const next = Math.min(40, Math.max(1, currentSprintDay + delta));
+    setCurrentSprintDay(next);
+    StorageService.saveProfile({ ...activeProfile, sprintManualDay: next });
+  };
+
+  const handleThreeMonthsWeekChange = (delta: number) => {
+    const next = Math.min(12, Math.max(1, currentThreeMonthsWeek + delta));
+    setCurrentThreeMonthsWeek(next);
+    StorageService.saveProfile({ ...activeProfile, threeMonthsManualWeek: next });
+  };
+
   // 當日訓練消耗
   const dayWorkouts = useMemo(() => {
     return StorageService.getWorkoutSessions(activeProfile.id).filter(w => w.date === selectedDate);
@@ -95,8 +128,15 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     return dayWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0);
   }, [dayWorkouts]);
 
-  // 營養素目標
-  const targets = useMemo(() => getUserNutritionTargets(activeProfile), [activeProfile]);
+  // 依據當前方案與天數計算今日營養素目標
+  const targets = useMemo(() => {
+    return getUserNutritionTargets(activeProfile, {
+      currentDate: selectedDate,
+      overridePhase: currentPhase,
+      overrideSprintDay: currentSprintDay,
+      overrideThreeMonthsWeek: currentThreeMonthsWeek,
+    });
+  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentThreeMonthsWeek]);
 
   // 當日總攝取統計
   const totals = useMemo(() => {
@@ -298,6 +338,260 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ==================== 體態與飲食方案專屬控制看板 ==================== */}
+      {/* 方案 A: 40 天固定衝刺階段表 */}
+      {targets.protocol === 'sprint_40d' && targets.sprintInfo && (
+        <div className="glass-card" style={{
+          background: targets.sprintInfo.isHighCarb ? 'rgba(244, 63, 94, 0.08)' : 'rgba(18, 26, 43, 0.85)',
+          border: `1px solid ${targets.sprintInfo.isHighCarb ? 'var(--neon-rose)' : 'rgba(244, 63, 94, 0.3)'}`,
+          boxShadow: targets.sprintInfo.isHighCarb ? '0 0 25px rgba(244, 63, 94, 0.2)' : 'none',
+        }}>
+          <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
+            <div className="flex items-center gap-2">
+              <Zap size={20} style={{ color: 'var(--neon-rose)' }} />
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                ⚡ 40 天固定衝刺階段表
+              </span>
+              <span className={`badge ${targets.sprintInfo.isHighCarb ? 'badge-rose' : 'badge-green'}`} style={{ fontSize: '0.75rem' }}>
+                {targets.sprintInfo.stageName}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsSprintTableModalOpen(true)}
+              >
+                📋 40天總表
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsKnowledgeModalOpen(true)}
+              >
+                💡 執行守則 & 補劑
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bar & Day Stepper */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div className="flex items-center justify-between" style={{ fontSize: '0.85rem', marginBottom: '0.35rem' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                衝刺進度：第 <strong style={{ color: 'var(--neon-rose)', fontSize: '1.15rem' }}>{targets.sprintInfo.day}</strong> / 40 天
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-icon btn-sm"
+                  style={{ width: '28px', height: '28px' }}
+                  disabled={targets.sprintInfo.day <= 1}
+                  onClick={() => handleSprintDayChange(-1)}
+                  title="切換至前一天"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-icon btn-sm"
+                  style={{ width: '28px', height: '28px' }}
+                  disabled={targets.sprintInfo.day >= 40}
+                  onClick={() => handleSprintDayChange(1)}
+                  title="切換至後一天"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="progress-bar-bg" style={{ height: '8px' }}>
+              <div
+                className="progress-bar-fill"
+                style={{
+                  width: `${Math.round((targets.sprintInfo.day / 40) * 100)}%`,
+                  background: 'linear-gradient(90deg, #f43f5e, #fb7185)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* High Carb Alert or Stage Info */}
+          {targets.sprintInfo.isHighCarb ? (
+            <div style={{
+              background: 'rgba(244, 63, 94, 0.15)',
+              border: '1px solid var(--neon-rose)',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.65rem',
+              color: '#ff8599',
+              fontSize: '0.85rem',
+              lineHeight: 1.5,
+            }}>
+              🔥 <strong>今日為第 {targets.sprintInfo.day} 天【高碳充碳日 (Refeed Day)】</strong>！<br />
+              今日目標：碳水 <strong>{targets.sprintInfo.carbRatio} g/kg ({targets.targetCarbs}g)</strong> · 蛋白 <strong>{targets.sprintInfo.proteinRatio} g/kg ({targets.targetProtein}g)</strong> · 脂肪 <strong>{targets.sprintInfo.fatRatio} g/kg ({targets.targetFat}g)</strong>。<br />
+              <span style={{ fontSize: '0.78rem', color: '#ffb3c0' }}>
+                ⚠️ 注意：高碳日只是宏量目標變化，不是隨便吃的放縱日！嚴格秤重記錄克數，避免高油脂食物，喚醒瘦素與甲狀腺代謝。
+              </span>
+            </div>
+          ) : (
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-color)',
+              padding: '0.65rem 0.9rem',
+              borderRadius: '0.65rem',
+              fontSize: '0.82rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+            }}>
+              <span>
+                階段重點：<strong>{targets.sprintInfo.stageRange}</strong> · 係數：碳水 {targets.sprintInfo.carbRatio} · 蛋白 {targets.sprintInfo.proteinRatio} · 脂肪 {targets.sprintInfo.fatRatio} g/kg ({activeProfile.gender === 'male' ? '男性係數' : '女性係數'})。
+              </span>
+              <span style={{ color: 'var(--neon-rose)', fontWeight: 600 }}>
+                {targets.sprintInfo.day < 12 ? `距離第 12 天高碳日還有 ${12 - targets.sprintInfo.day} 天` : targets.sprintInfo.day < 24 ? `距離第 24 天高碳日還有 ${24 - targets.sprintInfo.day} 天` : targets.sprintInfo.day < 36 ? `距離第 36 天高碳日還有 ${36 - targets.sprintInfo.day} 天` : '最後衝刺收尾期'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 方案 B: 譚成義 · 焚訣動態碳水循環 */}
+      {targets.protocol === 'tan_carb_cycling' && targets.carbCyclingInfo && (
+        <div className="glass-card" style={{
+          background: currentPhase === 'high_carb' ? 'rgba(0, 245, 155, 0.08)' : currentPhase === 'low_carb' ? 'rgba(168, 85, 247, 0.08)' : 'rgba(18, 26, 43, 0.85)',
+          border: `1px solid ${currentPhase === 'high_carb' ? 'var(--neon-green)' : currentPhase === 'low_carb' ? 'var(--neon-purple)' : 'var(--border-color)'}`,
+        }}>
+          <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
+            <div className="flex items-center gap-2">
+              <Flame size={20} style={{ color: 'var(--neon-green)' }} />
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                🍚 譚成義 · 焚訣動態碳水循環
+              </span>
+              <span className="badge badge-green" style={{ fontSize: '0.75rem' }}>
+                {targets.carbCyclingInfo.phaseLabel}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsKnowledgeModalOpen(true)}
+            >
+              💡 核心心法 & 補劑指南
+            </button>
+          </div>
+
+          {/* 3-Way Mode Switcher Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${currentPhase === 'baseline' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'center', padding: '0.55rem' }}
+              onClick={() => handlePhaseChange('baseline')}
+            >
+              🍚 基準平衡日 (3.0g/kg)
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${currentPhase === 'high_carb' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'center', padding: '0.55rem' }}
+              onClick={() => handlePhaseChange('high_carb')}
+            >
+              🚀 提高碳水 (+0.5倍, 降蛋白)
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${currentPhase === 'low_carb' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ justifyContent: 'center', padding: '0.55rem' }}
+              onClick={() => handlePhaseChange('low_carb')}
+            >
+              🛡️ 降低碳水/休息 (-0.5倍, 增蛋白)
+            </button>
+          </div>
+
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            padding: '0.65rem 0.85rem',
+            borderRadius: '0.65rem',
+            fontSize: '0.82rem',
+            lineHeight: 1.5,
+            color: 'var(--text-muted)'
+          }}>
+            <p><strong>💡 狀態指引</strong>：{targets.carbCyclingInfo.mindsetAdvice}</p>
+            <p style={{ marginTop: '0.2rem', color: 'var(--neon-green)' }}>
+              <strong>🏃 有氧搭配</strong>：{targets.carbCyclingInfo.cardioAdvice}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 方案 C: 三個月動態減脂方案 */}
+      {targets.protocol === 'dynamic_3months' && targets.threeMonthsInfo && (
+        <div className="glass-card" style={{
+          background: targets.threeMonthsInfo.isDietBreakWeek ? 'rgba(168, 85, 247, 0.12)' : 'rgba(18, 26, 43, 0.85)',
+          border: `1px solid ${targets.threeMonthsInfo.isDietBreakWeek ? 'var(--neon-purple)' : 'rgba(168, 85, 247, 0.3)'}`,
+        }}>
+          <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: '0.75rem' }}>
+            <div className="flex items-center gap-2">
+              <Calendar size={20} style={{ color: 'var(--neon-purple)' }} />
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                📅 三個月動態減脂方案 (12 週週期化)
+              </span>
+              <span className={`badge ${targets.threeMonthsInfo.isDietBreakWeek ? 'badge-purple' : 'badge-cyan'}`}>
+                Month {targets.threeMonthsInfo.month} · Week {targets.threeMonthsInfo.week}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsKnowledgeModalOpen(true)}
+            >
+              💡 執行原則 & 補劑
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+              當前階段：{targets.threeMonthsInfo.stageName}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon btn-sm"
+                style={{ width: '28px', height: '28px' }}
+                disabled={targets.threeMonthsInfo.week <= 1}
+                onClick={() => handleThreeMonthsWeekChange(-1)}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>第 {targets.threeMonthsInfo.week} 週</span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon btn-sm"
+                style={{ width: '28px', height: '28px' }}
+                disabled={targets.threeMonthsInfo.week >= 12}
+                onClick={() => handleThreeMonthsWeekChange(1)}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            padding: '0.65rem 0.85rem',
+            borderRadius: '0.65rem',
+            fontSize: '0.82rem',
+            color: 'var(--text-muted)'
+          }}>
+            {targets.threeMonthsInfo.notes}
+          </div>
+        </div>
+      )}
 
       {/* Daily Macros & Calorie Summary Card */}
       <div className="glass-card glow-green">
@@ -1059,6 +1353,220 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
                   建立並加入
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ==================== MODAL: 40 天固定衝刺階段總表 ==================== */}
+      {isSprintTableModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Zap size={20} style={{ color: 'var(--neon-rose)' }} />
+                <h3 className="modal-title">40 天固定衝刺階段表 (分男/女)</h3>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setIsSprintTableModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              <div style={{
+                background: 'rgba(244, 63, 94, 0.08)',
+                border: '1px solid rgba(244, 63, 94, 0.25)',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.75rem',
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)'
+              }}>
+                📌 <strong>獨立階段性衝刺方案</strong>：係數均需 $\times$ 當前體重 (kg)。高碳日只是宏量目標變化，不是放縱日！
+              </div>
+
+              {/* Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'left' }}>階段天數</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>類型</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>碳水 (g/kg)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>蛋白質 (g/kg)</th>
+                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>脂肪 男/女 (g/kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { range: '1–11 天', type: '普通日', carb: 3.0, prot: 1.4, fat: '0.4 / 0.5', isHigh: false, activeDays: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+                      { range: '第 12 天', type: '🔥 高碳日', carb: 5.0, prot: 1.0, fat: '0.4 / 0.5', isHigh: true, activeDays: [12] },
+                      { range: '13–23 天', type: '普通日', carb: 2.5, prot: 1.6, fat: '0.4 / 0.6', isHigh: false, activeDays: [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] },
+                      { range: '第 24 天', type: '🔥 高碳日', carb: 6.0, prot: 1.2, fat: '0.5 / 0.6', isHigh: true, activeDays: [24] },
+                      { range: '25–35 天', type: '普通日', carb: 2.0, prot: 1.8, fat: '0.5 / 0.6', isHigh: false, activeDays: [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] },
+                      { range: '第 36 天', type: '🔥 高碳日', carb: 6.0, prot: 1.2, fat: '0.5 / 0.6', isHigh: true, activeDays: [36] },
+                      { range: '37–40 天', type: '普通日', carb: 2.0, prot: 1.8, fat: '0.5 / 0.6', isHigh: false, activeDays: [37, 38, 39, 40] },
+                    ].map(row => {
+                      const isCurrentRow = row.activeDays.includes(currentSprintDay);
+                      return (
+                        <tr
+                          key={row.range}
+                          style={{
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                            background: isCurrentRow
+                              ? (row.isHigh ? 'rgba(244, 63, 94, 0.18)' : 'rgba(0, 245, 155, 0.12)')
+                              : (row.isHigh ? 'rgba(244, 63, 94, 0.05)' : 'transparent'),
+                            fontWeight: isCurrentRow ? 700 : 400,
+                          }}
+                        >
+                          <td style={{ padding: '0.65rem 0.5rem', color: isCurrentRow ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                            {row.range} {isCurrentRow && <span className="badge badge-rose" style={{ fontSize: '0.65rem', marginLeft: '0.3rem' }}>目前</span>}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'center', color: row.isHigh ? 'var(--neon-rose)' : 'var(--neon-green)' }}>
+                            {row.type}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'center', color: 'var(--neon-cyan)', fontWeight: 700 }}>
+                            {row.carb}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'center', color: 'var(--neon-emerald)', fontWeight: 700 }}>
+                            {row.prot}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'center', color: 'var(--neon-amber)', fontWeight: 700 }}>
+                            {row.fat}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 40天方案執行守則 */}
+              <div style={{
+                background: 'rgba(12, 19, 34, 0.7)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.8rem',
+                lineHeight: 1.6,
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--neon-rose)', marginBottom: '0.35rem' }}>
+                  40 天衝刺執行 4 大核心規則：
+                </div>
+                <div>01. <strong>從執行當天算第 1 天</strong>：不要用自然月或週一重新起算。</div>
+                <div>02. <strong>每天按當前體重乘係數</strong>：得到當天碳水、蛋白質和脂肪精確克數。</div>
+                <div>03. <strong>高碳日仍然要記錄克數</strong>：第 12、24、36 天不是放縱隨便吃！</div>
+                <div>04. <strong>不能和三個月動態版疊加</strong>：不要自行延長週期，也不要混合兩套係數。</div>
+                <div style={{ color: 'var(--neon-rose)', marginTop: '0.4rem' }}>
+                  ⚠️ <strong>停止硬頂信號</strong>：出現持續乏力 | 訓練表現明顯下降 | 睡眠、情緒或恢復顯著變差時，請立即停止衝刺！
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setIsSprintTableModalOpen(false)}>
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: 譚成義 · 焚訣 知識與補劑指南 ==================== */}
+      {isKnowledgeModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '680px' }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <BookOpen size={20} style={{ color: 'var(--neon-green)' }} />
+                <h3 className="modal-title">譚成義 · 焚訣《增肌減脂 & 補劑指南》</h3>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setIsKnowledgeModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              {/* 底層邏輯 */}
+              <div style={{
+                background: 'rgba(0, 245, 155, 0.06)',
+                border: '1px solid rgba(0, 245, 155, 0.25)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--neon-green)', fontSize: '0.95rem', marginBottom: '0.4rem' }}>
+                  增肌與減脂底層邏輯
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-main)', lineHeight: 1.6 }}>
+                  • <strong>增肌</strong>：熱量盈餘 + 訓練強度（漸進超負荷）。吃得多 ≠ 狀態好，盲目吃會導致肌肉狀態差、犯困、起痘、消化差。<br />
+                  • <strong>減脂</strong>：短期看熱量缺口，長期看激素穩定。用最小缺口（200-300 kcal/天）完成最大化減脂，大缺口會導致激素紊亂造成瓶頸期。<br />
+                  • <strong>動態碳水核心</strong>：平時保持微飢餓感抗炎；訓練強渴望碳水時提高碳水 +0.5倍降蛋白；休息時降低碳水 -0.5倍增蛋白。
+                </div>
+              </div>
+
+              {/* 補劑 3 條 */}
+              <div style={{
+                background: 'rgba(12, 19, 34, 0.7)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border-color)',
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--neon-cyan)', fontSize: '0.92rem', marginBottom: '0.5rem' }}>
+                  補劑：記住這 3 條 (只能補缺口，不能替代穩定飲食訓練)
+                </div>
+                <div className="flex flex-col gap-2">
+                  {TAN_KNOWLEDGE.supplements.map(s => (
+                    <div key={s.id} style={{ fontSize: '0.82rem' }}>
+                      <strong style={{ color: 'var(--text-main)' }}>{s.title}</strong>：
+                      <span style={{ color: 'var(--text-muted)' }}>{s.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 執行時到底看什麼 */}
+              <div style={{
+                background: 'rgba(12, 19, 34, 0.7)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border-color)',
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--neon-amber)', fontSize: '0.92rem', marginBottom: '0.5rem' }}>
+                  執行時到底看什麼？(體重只是一個指標，要看四組信息)
+                </div>
+                <div className="grid-cols-2 grid-responsive-2 gap-3">
+                  {TAN_KNOWLEDGE.executionMetrics.map(m => (
+                    <div key={m.id} style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-main)' }}>{m.title}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{m.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 最常見的 4 個誤區 */}
+              <div style={{
+                background: 'rgba(244, 63, 94, 0.06)',
+                border: '1px solid rgba(244, 63, 94, 0.25)',
+                padding: '0.85rem 1rem',
+                borderRadius: '0.75rem',
+              }}>
+                <div style={{ fontWeight: 800, color: 'var(--neon-rose)', fontSize: '0.92rem', marginBottom: '0.4rem' }}>
+                  最常見的 4 個誤區
+                </div>
+                <div className="flex flex-col gap-1.5" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  {TAN_KNOWLEDGE.commonMistakes.map((mistake, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <AlertTriangle size={13} style={{ color: 'var(--neon-rose)', flexShrink: 0 }} />
+                      <span>{mistake}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setIsKnowledgeModalOpen(false)}>
+                了解並關閉
+              </button>
             </div>
           </div>
         </div>

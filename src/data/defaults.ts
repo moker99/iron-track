@@ -242,6 +242,8 @@ export const INITIAL_USER_PROFILES: UserProfile[] = [
     goal: 'gain_muscle',
     role: 'admin',
     pinCode: '8888',
+    dietProtocol: 'tan_carb_cycling',
+    carbCyclingPhase: 'baseline',
     customCalories: 2650,
     customProteinGrams: 165,
     customCarbsGrams: 310,
