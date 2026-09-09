@@ -317,7 +317,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   🔑 個人通行密碼 (自由自訂，支援英文、數字與符號)
                 </label>
                 <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>
-                  {role === 'admin' ? 'Admin 預設 8888' : '隊員預設 1234'}
+                  {role === 'admin' ? 'Admin' : '隊員'}
                 </span>
               </div>
               <div style={{ position: 'relative' }}>

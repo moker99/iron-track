@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Shield, KeyRound, ArrowRight, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { StorageService } from '../services/storage';
+import { SupabaseSyncService } from '../services/supabase';
 
 interface AuthLockModalProps {
   profiles: UserProfile[];
@@ -23,6 +24,19 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isShaking, setIsShaking] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+
+  // 當背景雲端同步完成更新 profiles 時，即時更新當前選取成員的最新資料
+  useEffect(() => {
+    if (selectedUser) {
+      const refreshed = profiles.find(p => p.id === selectedUser.id);
+      if (refreshed) {
+        setSelectedUser(refreshed);
+      }
+    } else if (profiles.length === 1) {
+      setSelectedUser(profiles[0]);
+    }
+  }, [profiles]);
 
   const handleSelectUser = (user: UserProfile) => {
     setSelectedUser(user);
@@ -30,11 +44,36 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
     setErrorMessage('');
   };
 
-  const handleSubmitPassword = (e: React.FormEvent) => {
+  const handleSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser) return;
+    if (!selectedUser || isVerifying) return;
 
-    const isValid = StorageService.verifyPassword(selectedUser.id, passwordInput);
+    // 1. 先快速進行本地快取驗證
+    let isValid = StorageService.verifyPassword(selectedUser.id, passwordInput);
+
+    // 2. 若本地驗證未通過（可能剛清除 storage 且雲端背景同步尚未完成），直接連線至雲端 Supabase 驗證最新密碼
+    if (!isValid) {
+      setIsVerifying(true);
+      try {
+        const isOnlineValid = await SupabaseSyncService.verifyPasswordOnline(selectedUser.id, passwordInput);
+        if (isOnlineValid) {
+          isValid = true;
+          // 將雲端最新正確密碼同步寫入本地，避免之後再次等待雲端比對
+          const currentProfiles = StorageService.getProfiles();
+          const target = currentProfiles.find(p => p.id === selectedUser.id);
+          if (target) {
+            target.password = passwordInput.trim();
+            target.pinCode = passwordInput.trim();
+            StorageService.saveProfile(target);
+          }
+        }
+      } catch (err) {
+        console.error('Online password verification failed:', err);
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+
     if (isValid) {
       StorageService.setAuthenticatedProfileId(selectedUser.id);
       onSuccess(selectedUser);
@@ -42,7 +81,7 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
       setIsShaking(true);
       setErrorMessage(
         selectedUser.role === 'admin'
-          ? '管理員密碼錯誤！(初始預設密碼為 8888)'
+          ? '管理員密碼錯誤！請重新確認 (若尚未自訂密碼預設為 8888)'
           : '個人登入密碼錯誤，請重新確認！'
       );
       setTimeout(() => setIsShaking(false), 500);
@@ -173,7 +212,7 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedUser.name}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {selectedUser.role === 'admin' ? '👑 管理員帳號 (預設密碼: 8888)' : '成員個人帳號 (預設密碼: 1234)'}
+                  {selectedUser.role === 'admin' ? '👑 管理員帳號' : '成員個人帳號'}
                 </div>
               </div>
 
@@ -265,10 +304,10 @@ export const AuthLockModal: React.FC<AuthLockModalProps> = ({
                 type="submit"
                 className="btn btn-primary"
                 style={{ flex: 2, padding: '0.8rem', justifyContent: 'center' }}
-                disabled={passwordInput.trim().length === 0}
+                disabled={passwordInput.trim().length === 0 || isVerifying}
               >
                 <KeyRound size={16} />
-                <span>驗證密碼並進入系統</span>
+                <span>{isVerifying ? '雲端驗證中...' : '驗證密碼並進入系統'}</span>
               </button>
             </div>
           </form>

@@ -194,6 +194,7 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { id: 'ex-mountain-climbers', name: '登山者 (Mountain Climbers)', category: 'core', equipment: 'bodyweight', primaryMuscle: '動態核心 / 心肺耐力' },
   { id: 'ex-deadbug', name: '死蟲式 (Deadbug)', category: 'core', equipment: 'bodyweight', primaryMuscle: '深層腹橫肌 / 骨盆底穩定' },
   { id: 'ex-bird-dog', name: '鳥狗式 (Bird-Dog)', category: 'core', equipment: 'bodyweight', primaryMuscle: '背部多裂肌 / 抗旋轉核心' },
+  { id: 'ex-reverse-hyperextension', name: '反向山羊挺身 (Reverse Hyperextension)', category: 'core', equipment: 'machine', primaryMuscle: '下背豎脊肌 / 脊椎減壓與臀大肌強化' },
   { id: 'ex-machine-ab-crunch', name: '坐姿機械捲腹 (Machine Ab Crunch)', category: 'core', equipment: 'machine', primaryMuscle: '腹直肌漸進式重量超載' },
   { id: 'ex-hollow-body', name: '空心體支撐 (Hollow Body Hold)', category: 'core', equipment: 'bodyweight', primaryMuscle: '體操級全身核心鏈結' },
   { id: 'ex-pallof-press', name: '滑輪帕洛夫抗旋轉推舉 (Pallof Press)', category: 'core', equipment: 'cable', primaryMuscle: '核心抗旋轉能力王牌' },

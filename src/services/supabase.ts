@@ -181,8 +181,8 @@ export class SupabaseSyncService {
               activityLevel: cp.activityLevel || lp.activityLevel,
               goal: cp.goal || lp.goal,
               role: cp.role || lp.role,
-              password: lp.password || cp.password,
-              pinCode: lp.password || lp.pinCode || cp.pinCode,
+              password: cp.password || cp.pinCode || lp.password,
+              pinCode: cp.pinCode || cp.password || lp.pinCode || lp.password,
               dietProtocol: (cp.dietProtocol && cp.dietProtocol !== 'standard') ? cp.dietProtocol : (lp.dietProtocol || cp.dietProtocol),
               carbCyclingPhase: cp.carbCyclingPhase || lp.carbCyclingPhase,
               weeklyTrainingHours: cp.weeklyTrainingHours || lp.weeklyTrainingHours,
@@ -688,6 +688,29 @@ export class SupabaseSyncService {
       });
     } catch (e) {
       console.error('pushCustomFood to Supabase failed:', e);
+    }
+  }
+
+  /**
+   * 雲端即時密碼驗證 (當剛清除 storage 或尚未同步完成時，直接與雲端資料庫比對)
+   */
+  static async verifyPasswordOnline(profileId: string, inputPass: string): Promise<boolean> {
+    const client = getSupabaseClient();
+    if (!client) return false;
+    const targetId = profileId === 'user-shawn-admin' ? 'user-shawn' : profileId;
+    try {
+      const { data, error } = await client
+        .from('profiles')
+        .select('pin_code, role')
+        .eq('id', targetId)
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return false;
+      const expected = data.pin_code || (data.role === 'admin' ? '8888' : '1234');
+      return inputPass.trim() === expected.trim();
+    } catch {
+      return false;
     }
   }
 }
