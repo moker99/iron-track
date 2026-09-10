@@ -185,7 +185,10 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'analytics' && (
-          <AnalyticsView activeProfile={activeProfile} />
+          <AnalyticsView
+            activeProfile={activeProfile}
+            onUpdateProfile={handleSaveProfile}
+          />
         )}
       </main>
 

@@ -176,3 +176,12 @@ export interface CloudConfig {
   syncEnabled: boolean;
   lastSyncedAt?: string;
 }
+
+export interface WeightEntry {
+  id: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  weightKg: number;
+  note?: string; // 備註 (例如：晨起空腹、排便後、大餐隔天、練前)
+  createdAt: string;
+}

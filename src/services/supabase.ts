@@ -5,6 +5,7 @@ import type {
   FoodItem,
   MealEntry,
   UserProfile,
+  WeightEntry,
   WorkoutRoutineTemplate,
   WorkoutSession,
 } from '../types';
@@ -21,6 +22,7 @@ const STORAGE_KEYS = {
   CUSTOM_FOODS: 'irontrack_custom_foods',
   CUSTOM_ROUTINES: 'irontrack_custom_routines',
   CLOUD_CONFIG: 'irontrack_cloud_config',
+  WEIGHT_ENTRIES: 'irontrack_weight_entries',
 };
 
 /**
@@ -361,6 +363,37 @@ export class SupabaseSyncService {
         localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(Array.from(foodMap.values())));
       }
 
+      // 7. 同步 Weight Entries (每日體重紀錄)
+      const { data: cloudWeights, error: weightErr } = await client
+        .from('weight_entries')
+        .select('*');
+
+      if (!weightErr && cloudWeights) {
+        const mappedWeights: WeightEntry[] = cloudWeights.map((w: any) => ({
+          id: w.id,
+          userId: w.user_id === 'user-shawn-admin' ? 'user-shawn' : w.user_id,
+          date: w.date,
+          weightKg: Number(w.weight_kg),
+          note: w.note || undefined,
+          createdAt: w.created_at || new Date().toISOString(),
+        }));
+
+        const localRaw = localStorage.getItem(STORAGE_KEYS.WEIGHT_ENTRIES);
+        const localWeights: WeightEntry[] = localRaw ? JSON.parse(localRaw) : [];
+        const weightMap = new Map<string, WeightEntry>();
+
+        localWeights.forEach(w => weightMap.set(w.id, w));
+        mappedWeights.forEach(w => weightMap.set(w.id, w));
+
+        const missingOnCloud = localWeights.filter(lw => !mappedWeights.some(cw => cw.id === lw.id));
+        for (const missing of missingOnCloud) {
+          this.pushWeightEntry(missing).catch(() => {});
+        }
+
+        const mergedWeights = Array.from(weightMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+        localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(mergedWeights));
+      }
+
       return { success: true, message: '雲端資料同步完成！' };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -652,6 +685,34 @@ export class SupabaseSyncService {
     }
   }
 
+  static async pushWeightEntry(entry: WeightEntry): Promise<void> {
+    const client = getSupabaseClient();
+    if (!client) return;
+    const targetUserId = entry.userId === 'user-shawn-admin' ? 'user-shawn' : entry.userId;
+    try {
+      await client.from('weight_entries').upsert({
+        id: entry.id,
+        user_id: targetUserId,
+        date: entry.date,
+        weight_kg: entry.weightKg,
+        note: entry.note || null,
+        created_at: entry.createdAt,
+      });
+    } catch (e) {
+      console.error('pushWeightEntry to Supabase failed:', e);
+    }
+  }
+
+  static async deleteWeightEntry(id: string): Promise<void> {
+    const client = getSupabaseClient();
+    if (!client) return;
+    try {
+      await client.from('weight_entries').delete().eq('id', id);
+    } catch (e) {
+      console.error('deleteWeightEntry from Supabase failed:', e);
+    }
+  }
+
   /**
    * 雲端即時密碼驗證 (當剛清除 storage 或尚未同步完成時，直接與雲端資料庫比對)
    */
@@ -797,6 +858,16 @@ CREATE TABLE IF NOT EXISTS public.custom_foods (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 7. 每日體重追蹤表 (Daily Weight Entries)
+CREATE TABLE IF NOT EXISTS public.weight_entries (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  weight_kg NUMERIC NOT NULL,
+  note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- 啟用 RLS 安全策略
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.meal_entries ENABLE ROW LEVEL SECURITY;
@@ -804,6 +875,7 @@ ALTER TABLE public.workout_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.routine_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_exercises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_foods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.weight_entries ENABLE ROW LEVEL SECURITY;
 
 -- 允許持有金鑰的成員自由讀寫共享
 CREATE POLICY "Public full access profiles" ON public.profiles FOR ALL USING (true);
@@ -812,4 +884,5 @@ CREATE POLICY "Public full access workout_sessions" ON public.workout_sessions F
 CREATE POLICY "Public full access routine_templates" ON public.routine_templates FOR ALL USING (true);
 CREATE POLICY "Public full access custom_exercises" ON public.custom_exercises FOR ALL USING (true);
 CREATE POLICY "Public full access custom_foods" ON public.custom_foods FOR ALL USING (true);
+CREATE POLICY "Public full access weight_entries" ON public.weight_entries FOR ALL USING (true);
 `;

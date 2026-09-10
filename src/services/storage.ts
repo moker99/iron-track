@@ -5,6 +5,7 @@ import type {
   MealEntry,
   PersonalRecord,
   UserProfile,
+  WeightEntry,
   WorkoutRoutineTemplate,
   WorkoutSession,
 } from '../types';
@@ -30,6 +31,7 @@ export const STORAGE_KEYS = {
   CUSTOM_FOODS: 'irontrack_custom_foods',
   CUSTOM_ROUTINES: 'irontrack_custom_routines',
   CLOUD_CONFIG: 'irontrack_cloud_config',
+  WEIGHT_ENTRIES: 'irontrack_weight_entries',
   // Session storage key: 管理員本次登入後免密碼切換 (關閉分頁後自動清除)
   ADMIN_SESSION: 'irontrack_admin_session_unlocked',
 };
@@ -234,6 +236,80 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.MEAL_LOGS, JSON.stringify(all));
     // 雲端即時同步
     SupabaseSyncService.deleteMealEntry(id);
+  }
+
+  // ==================== 每日體重追蹤 (Weight Entries) 管理 ====================
+  static getWeightEntries(userId?: string): WeightEntry[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.WEIGHT_ENTRIES);
+      let all: WeightEntry[] = data ? JSON.parse(data) : [];
+      let modified = false;
+      all = all.map(w => {
+        if (w.userId === 'user-shawn-admin') {
+          modified = true;
+          return { ...w, userId: 'user-shawn' };
+        }
+        return w;
+      });
+      if (modified) {
+        localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(all));
+      }
+      if (!userId) {
+        return all.sort((a, b) => b.date.localeCompare(a.date));
+      }
+      const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+      return all
+        .filter(w => w.userId === targetUserId)
+        .sort((a, b) => b.date.localeCompare(a.date));
+    } catch {
+      return [];
+    }
+  }
+
+  static getWeightByDate(userId: string, date: string): WeightEntry | undefined {
+    const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+    const entries = this.getWeightEntries(targetUserId);
+    return entries.find(w => w.date === date);
+  }
+
+  static getLatestWeight(userId: string): WeightEntry | undefined {
+    const targetUserId = userId === 'user-shawn-admin' ? 'user-shawn' : userId;
+    const entries = this.getWeightEntries(targetUserId);
+    return entries.length > 0 ? entries[0] : undefined;
+  }
+
+  static saveWeightEntry(entry: WeightEntry): void {
+    const normalizedEntry: WeightEntry = {
+      ...entry,
+      userId: entry.userId === 'user-shawn-admin' ? 'user-shawn' : entry.userId,
+    };
+    const all = this.getWeightEntries().filter(
+      w => !(w.userId === normalizedEntry.userId && w.date === normalizedEntry.date)
+    );
+    all.push(normalizedEntry);
+    all.sort((a, b) => b.date.localeCompare(a.date));
+    localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(all));
+
+    // 若此筆紀錄是最新日期的體重紀錄，貼心同步更新該使用者的 activeProfile.weightKg
+    const userEntries = all.filter(w => w.userId === normalizedEntry.userId);
+    if (userEntries.length > 0 && userEntries[0].id === normalizedEntry.id) {
+      const profiles = this.getProfiles();
+      const userProf = profiles.find(p => p.id === normalizedEntry.userId);
+      if (userProf && userProf.weightKg !== normalizedEntry.weightKg) {
+        userProf.weightKg = normalizedEntry.weightKg;
+        this.saveProfile(userProf);
+      }
+    }
+
+    // 雲端即時同步
+    SupabaseSyncService.pushWeightEntry(normalizedEntry);
+  }
+
+  static deleteWeightEntry(id: string): void {
+    const all = this.getWeightEntries().filter(w => w.id !== id);
+    localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(all));
+    // 雲端即時同步
+    SupabaseSyncService.deleteWeightEntry(id);
   }
 
   // ==================== 訓練紀錄 (Workout Sessions) 管理 ====================
@@ -444,6 +520,7 @@ export class StorageService {
       customRoutines: localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_ROUTINES)!) : [],
       customExercises: localStorage.getItem(STORAGE_KEYS.CUSTOM_EXERCISES) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_EXERCISES)!) : [],
       customFoods: localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.CUSTOM_FOODS)!) : [],
+      weightEntries: this.getWeightEntries(),
     };
     return JSON.stringify(backup, null, 2);
   }
@@ -471,6 +548,9 @@ export class StorageService {
       }
       if (backup.customFoods) {
         localStorage.setItem(STORAGE_KEYS.CUSTOM_FOODS, JSON.stringify(backup.customFoods));
+      }
+      if (backup.weightEntries && Array.isArray(backup.weightEntries)) {
+        localStorage.setItem(STORAGE_KEYS.WEIGHT_ENTRIES, JSON.stringify(backup.weightEntries));
       }
       return true;
     } catch (e) {

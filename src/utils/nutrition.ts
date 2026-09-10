@@ -322,6 +322,7 @@ export function getUserNutritionTargets(
   user: UserProfile,
   options?: {
     currentDate?: string;
+    effectiveWeightKg?: number;
     overridePhase?: CarbCyclingPhase;
     overrideSprintDay?: number;
     overrideWeeklyTrainingHours?: WeeklyTrainingHours;
@@ -329,6 +330,7 @@ export function getUserNutritionTargets(
   }
 ) {
   const protocol: DietProtocol = user.dietProtocol || 'standard';
+  const weight = options?.effectiveWeightKg && options.effectiveWeightKg > 0 ? options.effectiveWeightKg : user.weightKg;
 
   // 1. 方案一：40 天固定衝刺階段表
   if (protocol === 'sprint_40d') {
@@ -342,16 +344,17 @@ export function getUserNutritionTargets(
     }
 
     const sprint = getSprint40DayConfig(day, user.gender);
-    const targetProtein = Math.round(user.weightKg * sprint.proteinRatio);
-    const targetCarbs = Math.round(user.weightKg * sprint.carbRatio);
-    const targetFat = Math.round(user.weightKg * sprint.fatRatio);
+    const targetProtein = Math.round(weight * sprint.proteinRatio);
+    const targetCarbs = Math.round(weight * sprint.carbRatio);
+    const targetFat = Math.round(weight * sprint.fatRatio);
     const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
 
-    const bmr = calculateBMR(user.gender, user.weightKg, user.heightCm, user.age);
+    const bmr = calculateBMR(user.gender, weight, user.heightCm, user.age);
     const tdee = calculateTDEE(bmr, user.activityLevel);
 
     return {
       protocol,
+      effectiveWeightKg: weight,
       bmr,
       tdee,
       targetCalories,
@@ -372,16 +375,17 @@ export function getUserNutritionTargets(
       fatRatio: user.tanBaselineFatRatio,
     };
     const cycle = getTanCarbCyclingConfig(phase, baseRatios);
-    const targetProtein = Math.round(user.weightKg * cycle.proteinRatio);
-    const targetCarbs = Math.round(user.weightKg * cycle.carbRatio);
-    const targetFat = Math.round(user.weightKg * cycle.fatRatio);
+    const targetProtein = Math.round(weight * cycle.proteinRatio);
+    const targetCarbs = Math.round(weight * cycle.carbRatio);
+    const targetFat = Math.round(weight * cycle.fatRatio);
     const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
 
-    const bmr = calculateBMR(user.gender, user.weightKg, user.heightCm, user.age);
+    const bmr = calculateBMR(user.gender, weight, user.heightCm, user.age);
     const tdee = calculateTDEE(bmr, user.activityLevel);
 
     return {
       protocol,
+      effectiveWeightKg: weight,
       bmr,
       tdee,
       targetCalories,
@@ -397,16 +401,17 @@ export function getUserNutritionTargets(
   if (protocol === 'dynamic_3months') {
     const hours: WeeklyTrainingHours = options?.overrideWeeklyTrainingHours || user.weeklyTrainingHours || '4-5';
     const threeMonth = getThreeMonthsConfig(hours, user.gender);
-    const targetProtein = Math.round(user.weightKg * threeMonth.proteinRatio);
-    const targetCarbs = Math.round(user.weightKg * threeMonth.carbRatio);
-    const targetFat = Math.round(user.weightKg * threeMonth.fatRatio);
+    const targetProtein = Math.round(weight * threeMonth.proteinRatio);
+    const targetCarbs = Math.round(weight * threeMonth.carbRatio);
+    const targetFat = Math.round(weight * threeMonth.fatRatio);
     const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
 
-    const bmr = calculateBMR(user.gender, user.weightKg, user.heightCm, user.age);
+    const bmr = calculateBMR(user.gender, weight, user.heightCm, user.age);
     const tdee = calculateTDEE(bmr, user.activityLevel);
 
     return {
       protocol,
+      effectiveWeightKg: weight,
       bmr,
       tdee,
       targetCalories,
@@ -419,13 +424,13 @@ export function getUserNutritionTargets(
   }
 
   // 4. 方案四：傳統標準計算 (BMR + TDEE 赤字/盈餘)
-  const bmr = calculateBMR(user.gender, user.weightKg, user.heightCm, user.age);
+  const bmr = calculateBMR(user.gender, weight, user.heightCm, user.age);
   const tdee = calculateTDEE(bmr, user.activityLevel);
   const goalOffset = GOAL_CONFIGS[user.goal]?.calorieOffset || 0;
   const autoTargetCalories = Math.max(1200, tdee + goalOffset);
 
   const targetCalories = user.customCalories || autoTargetCalories;
-  const recommended = calculateRecommendedMacros(targetCalories, user.weightKg, user.goal);
+  const recommended = calculateRecommendedMacros(targetCalories, weight, user.goal);
 
   const targetProtein = user.customProteinGrams || recommended.proteinGrams;
   const targetCarbs = user.customCarbsGrams || recommended.carbsGrams;
@@ -434,6 +439,7 @@ export function getUserNutritionTargets(
 
   return {
     protocol,
+    effectiveWeightKg: weight,
     bmr,
     tdee,
     targetCalories,

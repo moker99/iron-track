@@ -17,11 +17,13 @@ import {
   RefreshCw,
   Check,
   Edit3,
+  Scale,
 } from 'lucide-react';
 import type { CarbCyclingPhase, DietProtocol, FitnessGoal, FoodCategory, FoodItem, MealEntry, MealType, UserProfile, WeeklyTrainingHours } from '../types';
 import { StorageService } from '../services/storage';
 import { getUserNutritionTargets, TAN_KNOWLEDGE, THREE_MONTHS_TABLE, THREE_MONTHS_RULES } from '../utils/nutrition';
 import { NumberInput } from './NumberInput';
+import { DailyWeightModal } from './DailyWeightModal';
 
 interface DietTrackerViewProps {
   activeProfile: UserProfile;
@@ -128,6 +130,13 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   const [isSprintTableModalOpen, setIsSprintTableModalOpen] = useState<boolean>(false);
   const [isThreeMonthsModalOpen, setIsThreeMonthsModalOpen] = useState<boolean>(false);
   const [isProtocolModalOpen, setIsProtocolModalOpen] = useState<boolean>(false);
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState<boolean>(false);
+  const [weightRefreshKey, setWeightRefreshKey] = useState<number>(0);
+
+  // 當日體重紀錄 (若有紀錄則以該日體重動態計算蛋白質與碳水克數)
+  const dayWeight = useMemo(() => {
+    return StorageService.getWeightByDate(activeProfile.id, selectedDate);
+  }, [activeProfile.id, selectedDate, weightRefreshKey]);
 
   useEffect(() => {
     if (activeProfile.carbCyclingPhase) setCurrentPhase(activeProfile.carbCyclingPhase);
@@ -209,10 +218,11 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
     return dayWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0);
   }, [dayWorkouts]);
 
-  // 依據當前方案與天數計算今日營養素目標
+  // 依據當前方案與天數計算今日營養素目標 (依當日量測體重動態計算)
   const targets = useMemo(() => {
     return getUserNutritionTargets(activeProfile, {
       currentDate: selectedDate,
+      effectiveWeightKg: dayWeight?.weightKg || activeProfile.weightKg,
       overridePhase: currentPhase,
       overrideSprintDay: currentSprintDay,
       overrideWeeklyTrainingHours: currentTrainingHours,
@@ -222,7 +232,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
         fatRatio: tanBaselineFat,
       },
     });
-  }, [activeProfile, selectedDate, currentPhase, currentSprintDay, currentTrainingHours, tanBaselineCarb, tanBaselineProtein, tanBaselineFat]);
+  }, [activeProfile, selectedDate, dayWeight, currentPhase, currentSprintDay, currentTrainingHours, tanBaselineCarb, tanBaselineProtein, tanBaselineFat]);
 
   // 當日總攝取統計
   const totals = useMemo(() => {
@@ -528,7 +538,7 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
   return (
     <div className="flex flex-col gap-6">
       {/* Date Switcher & Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="diet-tracker-header flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="page-header-title" style={{ fontSize: '1.75rem', fontWeight: 800 }}>飲食與三大營養素追蹤</h1>
           <p className="page-header-desc" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -536,45 +546,99 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           </p>
         </div>
 
-        {/* Date Selector */}
-        <div className="flex items-center gap-2" style={{ background: 'rgba(18, 26, 43, 0.7)', padding: '0.35rem 0.6rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
-          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => handleDateChange(-1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <div className="flex items-center gap-2">
-            <Calendar size={15} style={{ color: 'var(--neon-green)' }} />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => {
-                setSelectedDate(e.target.value);
-                refreshMealLogs(e.target.value);
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-main)',
-                fontFamily: 'inherit',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            />
-          </div>
-          <button className="btn btn-secondary btn-icon btn-sm" onClick={() => handleDateChange(1)}>
-            <ChevronRight size={16} />
-          </button>
+        {/* Daily Weight Capsule & Date Selector */}
+        <div className="diet-toolbar-container flex items-center gap-2">
+          {/* Daily Weight Badge */}
           <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              const today = new Date().toISOString().split('T')[0];
-              setSelectedDate(today);
-              refreshMealLogs(today);
+            type="button"
+            className="diet-weight-btn btn btn-secondary btn-sm flex items-center justify-center gap-1.5"
+            style={{
+              background: dayWeight ? 'rgba(0, 245, 155, 0.12)' : 'rgba(18, 26, 43, 0.7)',
+              borderColor: dayWeight ? 'rgba(0, 245, 155, 0.4)' : 'var(--border-color)',
+              color: dayWeight ? 'var(--neon-green)' : 'var(--text-muted)',
+              padding: '0.35rem 0.65rem',
+              height: '38px',
+              borderRadius: '0.75rem',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+            onClick={() => setIsWeightModalOpen(true)}
+            title="點擊記錄或修改當日體重，自動依此體重換算今日克數"
+          >
+            <Scale size={15} style={{ color: dayWeight ? 'var(--neon-green)' : 'var(--text-muted)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+              {dayWeight ? `${dayWeight.weightKg} kg` : '記體重'}
+            </span>
+            <span style={{ fontSize: '0.72rem', opacity: 0.75, textDecoration: 'underline' }}>
+              {dayWeight ? '修改' : '+'}
+            </span>
+          </button>
+
+          {/* Date Selector */}
+          <div
+            className="diet-date-box flex items-center justify-between gap-1 sm:gap-2"
+            style={{
+              background: 'rgba(18, 26, 43, 0.7)',
+              padding: '0.3rem 0.5rem',
+              borderRadius: '0.75rem',
+              border: '1px solid var(--border-color)',
+              height: '38px',
             }}
           >
-            今日
-          </button>
+            <div className="flex items-center gap-1" style={{ minWidth: 0 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon btn-sm"
+                style={{ width: '26px', height: '26px', padding: 0 }}
+                onClick={() => handleDateChange(-1)}
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <div className="flex items-center gap-1" style={{ minWidth: 0 }}>
+                <Calendar size={14} style={{ color: 'var(--neon-green)', flexShrink: 0 }} />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={e => {
+                    setSelectedDate(e.target.value);
+                    refreshMealLogs(e.target.value);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-main)',
+                    fontFamily: 'inherit',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    outline: 'none',
+                    cursor: 'pointer',
+                    width: '110px',
+                    padding: 0,
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon btn-sm"
+                style={{ width: '26px', height: '26px', padding: 0 }}
+                onClick={() => handleDateChange(1)}
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '0.15rem 0.5rem', fontSize: '0.75rem', height: '26px', flexShrink: 0 }}
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                setSelectedDate(today);
+                refreshMealLogs(today);
+              }}
+            >
+              今日
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2779,6 +2843,28 @@ export const DietTrackerView: React.FC<DietTrackerViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 每日體重速記彈窗 */}
+      <DailyWeightModal
+        isOpen={isWeightModalOpen}
+        onClose={() => setIsWeightModalOpen(false)}
+        activeProfile={activeProfile}
+        initialDate={selectedDate}
+        onSaved={() => {
+          setWeightRefreshKey(prev => prev + 1);
+          if (onUpdateProfile) {
+            const latestProfile = StorageService.getActiveProfile();
+            onUpdateProfile(latestProfile);
+          }
+        }}
+        onDeleted={() => {
+          setWeightRefreshKey(prev => prev + 1);
+          if (onUpdateProfile) {
+            const latestProfile = StorageService.getActiveProfile();
+            onUpdateProfile(latestProfile);
+          }
+        }}
+      />
     </div>
   );
 };

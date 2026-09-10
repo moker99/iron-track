@@ -7,7 +7,8 @@ import {
   Plus,
   Award,
   ChevronRight,
-  Timer
+  Timer,
+  Scale,
 } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { StorageService } from '../services/storage';
@@ -38,7 +39,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const todayWorkout = useMemo(() => allWorkouts.find(w => w.date === todayStr), [allWorkouts, todayStr]);
   const prs = useMemo(() => StorageService.getPersonalRecords(activeProfile.id), [activeProfile.id]);
 
-  const targets = useMemo(() => getUserNutritionTargets(activeProfile), [activeProfile]);
+  const todayWeight = useMemo(() => StorageService.getWeightByDate(activeProfile.id, todayStr), [activeProfile.id, todayStr]);
+  const targets = useMemo(() => getUserNutritionTargets(activeProfile, {
+    effectiveWeightKg: todayWeight?.weightKg || activeProfile.weightKg
+  }), [activeProfile, todayWeight]);
 
   const todayWorkouts = useMemo(() => allWorkouts.filter(w => w.date === todayStr), [allWorkouts, todayStr]);
   const todayWorkoutBurn = useMemo(() => todayWorkouts.reduce((sum, w) => sum + (w.caloriesBurned || 0), 0), [todayWorkouts]);
@@ -113,7 +117,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Quick actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            className="btn btn-secondary btn-sm flex items-center gap-1.5"
+            onClick={() => onNavigate('analytics')}
+            title="查看體重走勢與每日追蹤"
+            style={{
+              background: todayWeight ? 'rgba(0, 245, 155, 0.12)' : 'rgba(18, 26, 43, 0.6)',
+              borderColor: todayWeight ? 'rgba(0, 245, 155, 0.35)' : 'var(--border-color)',
+              color: todayWeight ? 'var(--neon-green)' : 'var(--text-main)',
+            }}
+          >
+            <Scale size={14} style={{ color: todayWeight ? 'var(--neon-green)' : 'var(--text-muted)' }} />
+            <span>{todayWeight ? `今日 ${todayWeight.weightKg} kg` : `體重 ${activeProfile.weightKg} kg`}</span>
+          </button>
           <button className="btn btn-primary btn-sm" onClick={() => onNavigate('workout')}>
             <Play size={14} />
             <span>開始訓練</span>
